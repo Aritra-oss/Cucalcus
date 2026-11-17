@@ -24,17 +24,20 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-36.1
+            build-tools;36.0.0
 
-      - name: Install Gradle 9.3.1
-        run: |
-          GRADLE_VERSION=9.3.1
-          curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /opt
-          rm /tmp/gradle.zip
-          echo "/opt/gradle-${GRADLE_VERSION}/bin" >> "$GITHUB_PATH"
-
-      - name: Set up Gradle caching
+      - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+          validate-wrappers: false
+
+      - name: Verify Gradle installation
+        run: gradle --version
 
       - name: Restore debug signing keystore
         run: |
@@ -48,10 +51,16 @@ jobs:
           fi
 
       - name: Run unit and Robolectric tests
-        run: gradle :app:testDebugUnitTest --no-daemon
+        run: |
+          gradle :app:testDebugUnitTest --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dorg.gradle.workers.max=2
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: |
+          gradle :app:assembleDebug --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dorg.gradle.workers.max=2
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -70,7 +79,9 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
-            gradle :app:assembleRelease --no-daemon
+            gradle :app:assembleRelease --no-daemon \
+              -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+              -Dorg.gradle.workers.max=2
             echo "built=true" >> "$GITHUB_OUTPUT"
           else
             echo "Skipping signed release APK (signing secrets not configured)."
