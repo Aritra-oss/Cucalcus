@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:name=".CucalcusApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.MyApplication"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity-alias
+            android:name=".LauncherAliasQuadrant"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_quadrant"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_quadrant_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasIntersection"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_intersection"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_intersection_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasNegativeSpace"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_negative_space"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_negative_space_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasPrecision"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_precision"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_precision_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasKkr"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_kkr"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_kkr_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasRcb"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_rcb"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_rcb_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasMi"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mi"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_mi_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasCsk"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_csk"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_csk_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+    </application>
+
+</manifest>

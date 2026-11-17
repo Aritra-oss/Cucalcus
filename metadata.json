@@ -1,0 +1,6 @@
+{
+  "name": "Cucalcus",
+  "description": "Swiss-minimalist mathematical utility with scientific calculator, persistent history, 15 unit categories, live currency converter, financial/math/date tools, and deep personalisation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
