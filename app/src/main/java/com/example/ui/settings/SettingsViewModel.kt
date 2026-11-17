@@ -71,7 +71,27 @@ class SettingsViewModel(
     }
 
     fun setButtonShape(shape: ButtonShapeOption) {
-        viewModelScope.launch { settingsRepository.updateSettings { it.copy(buttonShape = shape) } }
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    buttonShape = shape,
+                    buttonCornerRadiusPercent = shape.defaultRadiusPercent ?: current.buttonCornerRadiusPercent
+                )
+            }
+        }
+    }
+
+    fun setButtonCornerRadiusPercent(percent: Int) {
+        val clamped = percent.coerceIn(0, 50)
+        val matchedPreset = ButtonShapeOption.entries.firstOrNull { it.defaultRadiusPercent == clamped }
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    buttonShape = matchedPreset ?: ButtonShapeOption.CUSTOM_RADIUS,
+                    buttonCornerRadiusPercent = clamped
+                )
+            }
+        }
     }
 
     fun setButtonSizeScale(scale: Float) {

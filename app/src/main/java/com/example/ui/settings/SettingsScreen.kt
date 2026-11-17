@@ -22,9 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +58,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +77,7 @@ import com.example.ui.components.CalculatorKeyButton
 import com.example.ui.components.KeypadKeyKind
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.components.SwissSectionHeader
+import com.example.ui.components.toComposeShape
 import com.example.ui.theme.CucalcusFonts
 import com.example.ui.theme.CucalcusTheme
 import kotlinx.coroutines.launch
@@ -275,10 +278,18 @@ fun SettingsScreen(
             SettingSubLabel("Button Shape & Real-Time Preview")
             ButtonLivePreviewRow(settings = settings)
 
-            ChipSelectionRow(
-                items = ButtonShapeOption.entries.map { it to it.label },
-                selected = settings.buttonShape,
-                onSelect = viewModel::setButtonShape
+            ButtonShapeVisualSelector(
+                selectedShape = settings.buttonShape,
+                cornerRadiusPercent = settings.buttonCornerRadiusPercent,
+                onSelectShape = viewModel::setButtonShape
+            )
+
+            SettingSliderRow(
+                label = "Corner Roundness (Square → Circle)",
+                valueText = "${settings.buttonCornerRadiusPercent * 2}%",
+                value = settings.buttonCornerRadiusPercent.toFloat(),
+                valueRange = 0f..50f,
+                onValueChange = { viewModel.setButtonCornerRadiusPercent(it.roundToInt()) }
             )
 
             SettingSliderRow(
@@ -499,7 +510,7 @@ fun SettingsScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(Icons.Outlined.VolumeUp, contentDescription = "Preview", tint = colors.accent, modifier = Modifier.size(15.dp))
+                                    Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = "Preview", tint = colors.accent, modifier = Modifier.size(15.dp))
                                     Text("Preview", style = MaterialTheme.typography.labelSmall, color = colors.primaryText)
                                 }
                             }
@@ -801,6 +812,72 @@ private fun ButtonLivePreviewRow(settings: CucalcusSettings) {
                 settingsOverride = settings,
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+@Composable
+private fun ButtonShapeVisualSelector(
+    selectedShape: ButtonShapeOption,
+    cornerRadiusPercent: Int,
+    onSelectShape: (ButtonShapeOption) -> Unit
+) {
+    val colors = CucalcusTheme.colors
+    val visibleOptions = ButtonShapeOption.entries.filter { it != ButtonShapeOption.CUSTOM_RADIUS }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        visibleOptions.chunked(4).forEach { rowOptions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowOptions.forEach { option ->
+                    val isSelected = selectedShape == option
+                    val previewShape = option.toComposeShape(cornerRadiusPercent)
+                    Surface(
+                        onClick = { onSelectShape(option) },
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (isSelected) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
+                        border = BorderStroke(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) colors.accent else colors.border
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("shape_option_${option.name}")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(previewShape)
+                                    .background(
+                                        if (isSelected) colors.accent.copy(alpha = 0.24f) else colors.elevatedSurface
+                                    )
+                                    .border(
+                                        width = 1.5.dp,
+                                        color = if (isSelected) colors.accent else colors.secondaryText,
+                                        shape = previewShape
+                                    )
+                            )
+                            Text(
+                                text = option.label,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    lineHeight = 12.sp
+                                ),
+                                color = if (isSelected) colors.accent else colors.primaryText,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

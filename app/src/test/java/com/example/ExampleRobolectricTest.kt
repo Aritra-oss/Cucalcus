@@ -31,6 +31,8 @@ class ExampleRobolectricTest {
         val original = CucalcusSettings(
             accentPreset = AccentPreset.ROYAL_PURPLE,
             displayFont = FontOption.ELEGANT_DISPLAY,
+            buttonShape = com.example.data.preferences.ButtonShapeOption.CHAMFERED,
+            buttonCornerRadiusPercent = 38,
             showDoubleZero = true,
             showTripleZero = true,
             decimalPrecision = 6,
@@ -40,6 +42,8 @@ class ExampleRobolectricTest {
         val restored = CucalcusSettings.fromJsonString(json).getOrThrow()
         assertEquals(original.accentPreset, restored.accentPreset)
         assertEquals(original.displayFont, restored.displayFont)
+        assertEquals(original.buttonShape, restored.buttonShape)
+        assertEquals(original.buttonCornerRadiusPercent, restored.buttonCornerRadiusPercent)
         assertEquals(original.showDoubleZero, restored.showDoubleZero)
         assertEquals(original.showTripleZero, restored.showTripleZero)
         assertEquals(original.decimalPrecision, restored.decimalPrecision)

@@ -31,6 +31,7 @@ class SettingsRepository(private val context: Context) {
         val FONT_SCALE = floatPreferencesKey("font_scale")
 
         val BUTTON_SHAPE = stringPreferencesKey("button_shape")
+        val BUTTON_CORNER_RADIUS_PERCENT = intPreferencesKey("button_corner_radius_percent")
         val BUTTON_SIZE_SCALE = floatPreferencesKey("button_size_scale")
         val BUTTON_SPACING_DP = floatPreferencesKey("button_spacing_dp")
         val BUTTON_OPACITY = floatPreferencesKey("button_opacity")
@@ -79,6 +80,7 @@ class SettingsRepository(private val context: Context) {
             interfaceFont = parseEnum(prefs[Keys.INTERFACE_FONT], d.interfaceFont),
             fontScale = prefs[Keys.FONT_SCALE] ?: d.fontScale,
             buttonShape = parseEnum(prefs[Keys.BUTTON_SHAPE], d.buttonShape),
+            buttonCornerRadiusPercent = (prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] ?: d.buttonCornerRadiusPercent).coerceIn(0, 50),
             buttonSizeScale = prefs[Keys.BUTTON_SIZE_SCALE] ?: d.buttonSizeScale,
             buttonSpacingDp = prefs[Keys.BUTTON_SPACING_DP] ?: d.buttonSpacingDp,
             buttonOpacity = prefs[Keys.BUTTON_OPACITY] ?: d.buttonOpacity,
@@ -167,6 +169,7 @@ class SettingsRepository(private val context: Context) {
             interfaceFont = parseEnum(prefs[Keys.INTERFACE_FONT], d.interfaceFont),
             fontScale = prefs[Keys.FONT_SCALE] ?: d.fontScale,
             buttonShape = parseEnum(prefs[Keys.BUTTON_SHAPE], d.buttonShape),
+            buttonCornerRadiusPercent = (prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] ?: d.buttonCornerRadiusPercent).coerceIn(0, 50),
             buttonSizeScale = prefs[Keys.BUTTON_SIZE_SCALE] ?: d.buttonSizeScale,
             buttonSpacingDp = prefs[Keys.BUTTON_SPACING_DP] ?: d.buttonSpacingDp,
             buttonOpacity = prefs[Keys.BUTTON_OPACITY] ?: d.buttonOpacity,
@@ -203,6 +206,7 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.INTERFACE_FONT] = s.interfaceFont.name
         prefs[Keys.FONT_SCALE] = s.fontScale
         prefs[Keys.BUTTON_SHAPE] = s.buttonShape.name
+        prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] = s.buttonCornerRadiusPercent
         prefs[Keys.BUTTON_SIZE_SCALE] = s.buttonSizeScale
         prefs[Keys.BUTTON_SPACING_DP] = s.buttonSpacingDp
         prefs[Keys.BUTTON_OPACITY] = s.buttonOpacity

@@ -10,7 +10,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +41,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -130,11 +127,11 @@ fun CalculatorScreen(
                     )
                     MemoryControlRow(
                         memoryValue = state.memoryValue,
-                        settings = settings,
                         onClear = viewModel::onMemoryClear,
                         onRecall = viewModel::onMemoryRecall,
                         onAdd = viewModel::onMemoryAdd,
-                        onSubtract = viewModel::onMemorySubtract
+                        onSubtract = viewModel::onMemorySubtract,
+                        onBackspace = viewModel::onBackspace
                     )
                 }
 
@@ -163,7 +160,6 @@ fun CalculatorScreen(
                         onPercent = viewModel::onPercent,
                         onParen = viewModel::onParenthesis,
                         onToggleSign = viewModel::onToggleSign,
-                        onBackspace = viewModel::onBackspace,
                         onClear = viewModel::onClear,
                         onEquals = viewModel::onEquals,
                         modifier = Modifier.weight(1f)
@@ -206,14 +202,13 @@ fun CalculatorScreen(
                 )
                 MemoryControlRow(
                     memoryValue = state.memoryValue,
-                    settings = settings,
                     onClear = viewModel::onMemoryClear,
                     onRecall = viewModel::onMemoryRecall,
                     onAdd = viewModel::onMemoryAdd,
-                    onSubtract = viewModel::onMemorySubtract
+                    onSubtract = viewModel::onMemorySubtract,
+                    onBackspace = viewModel::onBackspace
                 )
-                HorizontalDivider(thickness = 1.dp, color = colors.border)
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Column(
                     modifier = Modifier
@@ -240,7 +235,6 @@ fun CalculatorScreen(
                         onPercent = viewModel::onPercent,
                         onParen = viewModel::onParenthesis,
                         onToggleSign = viewModel::onToggleSign,
-                        onBackspace = viewModel::onBackspace,
                         onClear = viewModel::onClear,
                         onEquals = viewModel::onEquals,
                         modifier = Modifier.weight(1f)
@@ -397,52 +391,106 @@ private fun CalculatorDisplayPanel(
         scrollState.animateScrollTo(scrollState.maxValue)
     }
 
-    Column(
+    val hasMemory = abs(state.memoryValue) > 1e-14
+    val formatTag = when (settings.numberFormatMode) {
+        NumberFormatMode.INTERNATIONAL -> "INT"
+        NumberFormatMode.INDIAN -> "IND"
+        NumberFormatMode.SCIENTIFIC -> "SCI"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = colors.secondaryBg,
+        border = BorderStroke(1.dp, colors.border),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.Bottom,
-        horizontalAlignment = Alignment.End
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(scrollState),
-            contentAlignment = Alignment.CenterEnd
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.End
         ) {
-            Text(
-                text = displayText,
-                fontFamily = displayFont,
-                fontSize = dynamicSp.sp,
-                fontWeight = FontWeight.Light,
-                color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.6f) else colors.primaryText,
-                maxLines = 1,
-                textAlign = TextAlign.End,
-                modifier = Modifier.testTag("calculator_display")
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$formatTag · ${settings.decimalPrecision}D",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                    color = colors.secondaryText.copy(alpha = 0.8f)
+                )
+                if (hasMemory) {
+                    val formattedMem = NumberFormatter.formatResult(
+                        state.memoryValue,
+                        settings.decimalPrecision.coerceAtMost(4),
+                        NumberFormatMode.INTERNATIONAL
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(3.dp),
+                        color = colors.accent.copy(alpha = 0.14f),
+                        border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "M $formattedMem",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = colors.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
 
-        Spacer(modifier = Modifier.height(6.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Text(
+                        text = displayText,
+                        fontFamily = displayFont,
+                        fontSize = dynamicSp.sp,
+                        fontWeight = FontWeight.Light,
+                        color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.55f) else colors.primaryText,
+                        maxLines = 1,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.testTag("calculator_display")
+                    )
+                }
 
-        AnimatedContent(
-            targetState = state.errorMessage ?: state.livePreview,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "preview_anim"
-        ) { text ->
-            val isError = state.errorMessage != null
-            Text(
-                text = if (isError) text else if (text.isNotEmpty()) "= $text" else " ",
-                fontFamily = displayFont,
-                fontSize = (if (isError) 15f else 22f * settings.fontScale).sp,
-                fontWeight = if (isError) FontWeight.Medium else FontWeight.Normal,
-                color = if (isError) colors.error else colors.accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("calculator_preview")
-            )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                AnimatedContent(
+                    targetState = state.errorMessage ?: state.livePreview,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "preview_anim"
+                ) { text ->
+                    val isError = state.errorMessage != null
+                    Text(
+                        text = if (isError) text else if (text.isNotEmpty()) "= $text" else " ",
+                        fontFamily = displayFont,
+                        fontSize = (if (isError) 15f else 22f * settings.fontScale).sp,
+                        fontWeight = if (isError) FontWeight.Medium else FontWeight.Normal,
+                        color = if (isError) colors.error else colors.accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("calculator_preview")
+                    )
+                }
+            }
         }
     }
 }
@@ -450,24 +498,24 @@ private fun CalculatorDisplayPanel(
 @Composable
 private fun MemoryControlRow(
     memoryValue: Double,
-    settings: CucalcusSettings,
     onClear: () -> Unit,
     onRecall: () -> Unit,
     onAdd: () -> Unit,
-    onSubtract: () -> Unit
+    onSubtract: () -> Unit,
+    onBackspace: () -> Unit
 ) {
     val colors = CucalcusTheme.colors
     val hasMemory = abs(memoryValue) > 1e-14
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             listOf(
                 "MC" to onClear,
@@ -475,12 +523,12 @@ private fun MemoryControlRow(
                 "M+" to onAdd,
                 "M−" to onSubtract
             ).forEach { (label, action) ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(3.dp))
-                        .clickable(onClick = action)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("mem_$label")
+                Surface(
+                    onClick = action,
+                    shape = RoundedCornerShape(4.dp),
+                    color = colors.cardBg,
+                    border = BorderStroke(1.dp, colors.border),
+                    modifier = Modifier.testTag("mem_$label")
                 ) {
                     Text(
                         text = label,
@@ -489,25 +537,37 @@ private fun MemoryControlRow(
                             colors.secondaryText.copy(alpha = 0.45f)
                         } else {
                             colors.primaryText
-                        }
+                        },
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp)
                     )
                 }
             }
         }
 
-        if (hasMemory) {
-            val formattedMem = NumberFormatter.formatResult(
-                memoryValue,
-                settings.decimalPrecision.coerceAtMost(4),
-                NumberFormatMode.INTERNATIONAL
-            )
-            Text(
-                text = "M: $formattedMem",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Surface(
+            onClick = onBackspace,
+            shape = RoundedCornerShape(4.dp),
+            color = colors.elevatedSurface,
+            border = BorderStroke(1.dp, colors.border),
+            modifier = Modifier.testTag("key_backspace")
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Backspace,
+                    contentDescription = "Backspace",
+                    tint = colors.accent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "DEL",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = colors.primaryText
+                )
+            }
         }
     }
 }
@@ -591,7 +651,6 @@ private fun StandardKeypadGrid(
     onPercent: () -> Unit,
     onParen: () -> Unit,
     onToggleSign: () -> Unit,
-    onBackspace: () -> Unit,
     onClear: () -> Unit,
     onEquals: () -> Unit,
     modifier: Modifier = Modifier
@@ -632,7 +691,7 @@ private fun StandardKeypadGrid(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing)
     ) {
-        // Row 1: AC, (), %, ÷ (or ordered for left-handed)
+        // Row 1: AC, (), %, ÷ aligned cleanly on 4-column Swiss grid
         val orderedTop = if (leftHanded) listOf(topRowKeys.last()) + topRowKeys.dropLast(1) else topRowKeys
         Row(
             modifier = Modifier
@@ -663,17 +722,6 @@ private fun StandardKeypadGrid(
                         .fillMaxHeight()
                 )
             }
-            // Dedicated backspace key on top row right for fast editing
-            CalculatorKeyButton(
-                label = "⌫",
-                keyKind = KeypadKeyKind.FUNCTION,
-                accessibilityLabel = "Backspace",
-                tagName = "key_backspace",
-                onClick = onBackspace,
-                modifier = Modifier
-                    .weight(0.85f)
-                    .fillMaxHeight()
-            )
         }
 
         // Rows 2-4: Digits + Operators

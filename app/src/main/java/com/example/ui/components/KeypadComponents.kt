@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,11 +45,16 @@ enum class KeypadKeyKind {
     CLEAR
 }
 
-fun ButtonShapeOption.toComposeShape(): Shape = when (this) {
+fun ButtonShapeOption.toComposeShape(cornerRadiusPercent: Int = 16): Shape = when (this) {
     ButtonShapeOption.SQUARE -> RoundedCornerShape(0.dp)
-    ButtonShapeOption.SLIGHTLY_ROUNDED -> RoundedCornerShape(6.dp)
-    ButtonShapeOption.ROUNDED -> RoundedCornerShape(16.dp)
+    ButtonShapeOption.SLIGHTLY_ROUNDED -> RoundedCornerShape(percent = 16)
+    ButtonShapeOption.ROUNDED -> RoundedCornerShape(percent = 34)
+    ButtonShapeOption.SQUIRCLE -> RoundedCornerShape(percent = 42)
     ButtonShapeOption.CIRCULAR -> CircleShape
+    ButtonShapeOption.CHAMFERED -> CutCornerShape(11.dp)
+    ButtonShapeOption.DIAGONAL_CUT -> CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp, topEnd = 2.dp, bottomStart = 2.dp)
+    ButtonShapeOption.LEAF -> RoundedCornerShape(topStart = 20.dp, bottomEnd = 20.dp, topEnd = 4.dp, bottomStart = 4.dp)
+    ButtonShapeOption.CUSTOM_RADIUS -> RoundedCornerShape(percent = cornerRadiusPercent.coerceIn(0, 50))
 }
 
 @Composable
@@ -76,7 +82,7 @@ fun CalculatorKeyButton(
         label = "key_scale"
     )
 
-    val shape = settings.buttonShape.toComposeShape()
+    val shape = settings.buttonShape.toComposeShape(settings.buttonCornerRadiusPercent)
     val opacity = settings.buttonOpacity.coerceIn(0.4f, 1.0f)
 
     val baseBg: Color

@@ -29,11 +29,16 @@ enum class FontOption(val label: String) {
     ELEGANT_DISPLAY("Display (Playfair)")
 }
 
-enum class ButtonShapeOption(val label: String) {
-    SQUARE("Square"),
-    SLIGHTLY_ROUNDED("Slightly Rounded"),
-    ROUNDED("Rounded"),
-    CIRCULAR("Circular")
+enum class ButtonShapeOption(val label: String, val defaultRadiusPercent: Int? = null) {
+    SQUARE("Cornered Square", 0),
+    SLIGHTLY_ROUNDED("Soft Square", 16),
+    ROUNDED("Rounded", 34),
+    SQUIRCLE("Squircle", 42),
+    CIRCULAR("Full Circle", 50),
+    CHAMFERED("Chamfered"),
+    DIAGONAL_CUT("Swiss Bevel"),
+    LEAF("Leaf"),
+    CUSTOM_RADIUS("Custom Radius")
 }
 
 enum class KeypadArrangement(val label: String) {
@@ -135,6 +140,7 @@ data class CucalcusSettings(
     val fontScale: Float = 1.0f,
 
     val buttonShape: ButtonShapeOption = ButtonShapeOption.SLIGHTLY_ROUNDED,
+    val buttonCornerRadiusPercent: Int = 16, // 0 = sharp square, 50 = full circle/pill
     val buttonSizeScale: Float = 1.0f,
     val buttonSpacingDp: Float = 6f,
     val buttonOpacity: Float = 1.0f,
@@ -178,6 +184,7 @@ data class CucalcusSettings(
         json.put("interfaceFont", interfaceFont.name)
         json.put("fontScale", fontScale.toDouble())
         json.put("buttonShape", buttonShape.name)
+        json.put("buttonCornerRadiusPercent", buttonCornerRadiusPercent)
         json.put("buttonSizeScale", buttonSizeScale.toDouble())
         json.put("buttonSpacingDp", buttonSpacingDp.toDouble())
         json.put("buttonOpacity", buttonOpacity.toDouble())
@@ -219,6 +226,7 @@ data class CucalcusSettings(
                         interfaceFont = enumOrDefault(j.optString("interfaceFont"), defaults.interfaceFont),
                         fontScale = j.optDouble("fontScale", defaults.fontScale.toDouble()).toFloat().coerceIn(0.85f, 1.25f),
                         buttonShape = enumOrDefault(j.optString("buttonShape"), defaults.buttonShape),
+                        buttonCornerRadiusPercent = j.optInt("buttonCornerRadiusPercent", defaults.buttonCornerRadiusPercent).coerceIn(0, 50),
                         buttonSizeScale = j.optDouble("buttonSizeScale", defaults.buttonSizeScale.toDouble()).toFloat().coerceIn(0.85f, 1.15f),
                         buttonSpacingDp = j.optDouble("buttonSpacingDp", defaults.buttonSpacingDp.toDouble()).toFloat().coerceIn(2f, 12f),
                         buttonOpacity = j.optDouble("buttonOpacity", defaults.buttonOpacity.toDouble()).toFloat().coerceIn(0.4f, 1.0f),
