@@ -7,10 +7,10 @@ import retrofit2.http.Path
 
 @JsonClass(generateAdapter = true)
 data class OpenErApiResponse(
-    @Json(name = "result") val result: String? = null,
-    @Json(name = "time_last_update_unix") val timeLastUpdateUnix: Long? = null,
-    @Json(name = "base_code") val baseCode: String? = null,
-    @Json(name = "rates") val rates: Map<String, Double>? = null
+    @param:Json(name = "result") val result: String? = null,
+    @param:Json(name = "time_last_update_unix") val timeLastUpdateUnix: Long? = null,
+    @param:Json(name = "base_code") val baseCode: String? = null,
+    @param:Json(name = "rates") val rates: Map<String, Double>? = null
 )
 
 interface CurrencyApiService {

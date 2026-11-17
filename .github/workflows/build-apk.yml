@@ -22,19 +22,59 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
         with:
-          packages: |
-            platform-tools
-            platforms;android-36.1
-            build-tools;36.0.0
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Set up Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
-          validate-wrappers: false
+      - name: Install Gradle 9.3.1
+        run: |
+          GRADLE_VERSION=9.3.1
+          mkdir -p "$HOME/.local"
+          curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
+          unzip -q -o /tmp/gradle.zip -d "$HOME/.local"
+          rm -f /tmp/gradle.zip
+          echo "$HOME/.local/gradle-${GRADLE_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Android SDK and API 36.1
+        run: |
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK_DIR" ]; then
+            SDK_DIR="$HOME/android-sdk"
+            mkdir -p "$SDK_DIR"
+          fi
+          sudo chown -R "$(id -u):$(id -g)" "$SDK_DIR" || true
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
+
+          SDKMANAGER=""
+          for candidate in \
+            "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK_DIR/cmdline-tools/bin/sdkmanager"; do
+            if [ -x "$candidate" ]; then
+              SDKMANAGER="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            mkdir -p "$SDK_DIR/cmdline-tools"
+            curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o /tmp/cmdline-tools.zip
+            unzip -q -o /tmp/cmdline-tools.zip -d /tmp/cmdline-unpack
+            rm -rf "$SDK_DIR/cmdline-tools/latest"
+            mv /tmp/cmdline-unpack/cmdline-tools "$SDK_DIR/cmdline-tools/latest"
+            rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-unpack
+            SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" "platform-tools" "build-tools;36.0.0" "platforms;android-36"
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" "platforms;android-36.1" || true
 
       - name: Verify Gradle installation
         run: gradle --version
@@ -51,16 +91,10 @@ jobs:
           fi
 
       - name: Run unit and Robolectric tests
-        run: |
-          gradle :app:testDebugUnitTest --no-daemon \
-            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
-            -Dorg.gradle.workers.max=2
+        run: gradle :app:testDebugUnitTest --no-daemon -Dorg.gradle.workers.max=2
 
       - name: Build Debug APK
-        run: |
-          gradle :app:assembleDebug --no-daemon \
-            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
-            -Dorg.gradle.workers.max=2
+        run: gradle :app:assembleDebug --no-daemon -Dorg.gradle.workers.max=2
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -79,9 +113,7 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
-            gradle :app:assembleRelease --no-daemon \
-              -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
-              -Dorg.gradle.workers.max=2
+            gradle :app:assembleRelease --no-daemon -Dorg.gradle.workers.max=2
             echo "built=true" >> "$GITHUB_OUTPUT"
           else
             echo "Skipping signed release APK (signing secrets not configured)."
