@@ -23,13 +23,42 @@
             android:theme="@style/Theme.MyApplication"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 7 Normal Collection Aliases -->
         <activity-alias
-            android:name=".LauncherAliasQuadrant"
+            android:name=".LauncherAliasNormalGold"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_normal_gold"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_normal_gold_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasNormalTeal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_normal_teal"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_normal_teal_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasNormalGreen"
             android:enabled="true"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_quadrant"
+            android:icon="@mipmap/ic_launcher_normal_green"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_quadrant_round"
+            android:roundIcon="@mipmap/ic_launcher_normal_green_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -38,12 +67,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasIntersection"
+            android:name=".LauncherAliasNormalMaroon"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_intersection"
+            android:icon="@mipmap/ic_launcher_normal_maroon"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_intersection_round"
+            android:roundIcon="@mipmap/ic_launcher_normal_maroon_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -52,12 +81,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasNegativeSpace"
+            android:name=".LauncherAliasNormalCrimson"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_negative_space"
+            android:icon="@mipmap/ic_launcher_normal_crimson"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_negative_space_round"
+            android:roundIcon="@mipmap/ic_launcher_normal_crimson_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -66,12 +95,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasPrecision"
+            android:name=".LauncherAliasNormalBlue"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_precision"
+            android:icon="@mipmap/ic_launcher_normal_blue"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_precision_round"
+            android:roundIcon="@mipmap/ic_launcher_normal_blue_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -80,12 +109,27 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasKkr"
+            android:name=".LauncherAliasNormalPurple"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_kkr"
+            android:icon="@mipmap/ic_launcher_normal_purple"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_kkr_round"
+            android:roundIcon="@mipmap/ic_launcher_normal_purple_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 7 IPL Collection Aliases -->
+        <activity-alias
+            android:name=".LauncherAliasIplGt"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ipl_gt"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_ipl_gt_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -94,12 +138,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasRcb"
+            android:name=".LauncherAliasIplKkr"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_rcb"
+            android:icon="@mipmap/ic_launcher_ipl_kkr"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_rcb_round"
+            android:roundIcon="@mipmap/ic_launcher_ipl_kkr_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -108,12 +152,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasMi"
+            android:name=".LauncherAliasIplRcb"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_mi"
+            android:icon="@mipmap/ic_launcher_ipl_rcb"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_mi_round"
+            android:roundIcon="@mipmap/ic_launcher_ipl_rcb_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -122,12 +166,69 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".LauncherAliasCsk"
+            android:name=".LauncherAliasIplSrh"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_csk"
+            android:icon="@mipmap/ic_launcher_ipl_srh"
             android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_csk_round"
+            android:roundIcon="@mipmap/ic_launcher_ipl_srh_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasIplMi"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ipl_mi"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_ipl_mi_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasIplRr"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ipl_rr"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_ipl_rr_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherAliasIplCsk"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ipl_csk"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_ipl_csk_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- 1 National Edition Alias (Default) -->
+        <activity-alias
+            android:name=".LauncherAliasIndiaFlag"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_india_flag"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_india_flag_round"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

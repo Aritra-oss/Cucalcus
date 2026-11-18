@@ -107,8 +107,9 @@ enum class HapticStrength(val label: String) {
 }
 
 enum class IconCategory(val title: String) {
-    MATHEMATICAL("Category A: Mathematical Collection"),
-    IPL_INSPIRED("Category B: IPL-Inspired Collection")
+    NORMAL("Category A: Normal Collection"),
+    IPL_INSPIRED("Category B: IPL-Inspired Collection"),
+    NATIONAL("Category C: National Edition")
 }
 
 enum class AppIconOption(
@@ -118,61 +119,112 @@ enum class AppIconOption(
     val category: IconCategory,
     val aliasClassName: String
 ) {
-    QUADRANT(
-        id = "quadrant",
-        displayName = "Quadrant",
-        subtitle = "Monochrome Glass Grid",
-        category = IconCategory.MATHEMATICAL,
-        aliasClassName = "com.example.LauncherAliasQuadrant"
+    NORMAL_GOLD(
+        id = "normal_gold",
+        displayName = "Dark Gold Edition",
+        subtitle = "Gold & Navy Minimal",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalGold"
     ),
-    INTERSECTION(
-        id = "intersection",
-        displayName = "Orbit Silver",
-        subtitle = "Platinum Swirl & Glass",
-        category = IconCategory.MATHEMATICAL,
-        aliasClassName = "com.example.LauncherAliasIntersection"
+    NORMAL_TEAL(
+        id = "normal_teal",
+        displayName = "Teal Edition",
+        subtitle = "Teal & Cream Style",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalTeal"
     ),
-    NEGATIVE_SPACE(
-        id = "negative_space",
-        displayName = "Prism Grid",
-        subtitle = "Blue, Violet & Amber",
-        category = IconCategory.MATHEMATICAL,
-        aliasClassName = "com.example.LauncherAliasNegativeSpace"
+    NORMAL_GREEN(
+        id = "normal_green",
+        displayName = "Green Edition",
+        subtitle = "Emerald Green Minimal",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalGreen"
     ),
-    PRECISION(
-        id = "precision",
-        displayName = "Emerald Crest",
-        subtitle = "Emerald & Cream Orbit",
-        category = IconCategory.MATHEMATICAL,
-        aliasClassName = "com.example.LauncherAliasPrecision"
+    NORMAL_MAROON(
+        id = "normal_maroon",
+        displayName = "Maroon Edition",
+        subtitle = "Rich Maroon Minimal",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalMaroon"
     ),
-    KKR(
-        id = "kkr",
-        displayName = "KKR Edition",
+    NORMAL_CRIMSON(
+        id = "normal_crimson",
+        displayName = "Crimson Edition",
+        subtitle = "Deep Crimson Style",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalCrimson"
+    ),
+    NORMAL_BLUE(
+        id = "normal_blue",
+        displayName = "Royal Blue Edition",
+        subtitle = "Royal Blue Minimal",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalBlue"
+    ),
+    NORMAL_PURPLE(
+        id = "normal_purple",
+        displayName = "Purple Edition",
+        subtitle = "Deep Purple Minimal",
+        category = IconCategory.NORMAL,
+        aliasClassName = "com.example.LauncherAliasNormalPurple"
+    ),
+
+    IPL_GT(
+        id = "ipl_gt",
+        displayName = "Gujarat Titans",
+        subtitle = "Titan Blue & Gold",
+        category = IconCategory.IPL_INSPIRED,
+        aliasClassName = "com.example.LauncherAliasIplGt"
+    ),
+    IPL_KKR(
+        id = "ipl_kkr",
+        displayName = "Kolkata Knight Riders",
         subtitle = "Purple & Gold Knight",
         category = IconCategory.IPL_INSPIRED,
-        aliasClassName = "com.example.LauncherAliasKkr"
+        aliasClassName = "com.example.LauncherAliasIplKkr"
     ),
-    RCB(
-        id = "rcb",
-        displayName = "RCB Edition",
+    IPL_RCB(
+        id = "ipl_rcb",
+        displayName = "Royal Challengers",
         subtitle = "Crimson & Gold Lion",
         category = IconCategory.IPL_INSPIRED,
-        aliasClassName = "com.example.LauncherAliasRcb"
+        aliasClassName = "com.example.LauncherAliasIplRcb"
     ),
-    MI(
-        id = "mi",
-        displayName = "MI Edition",
-        subtitle = "Royal Blue & Gold",
+    IPL_SRH(
+        id = "ipl_srh",
+        displayName = "Sunrisers Hyderabad",
+        subtitle = "Orange Sunrise Phoenix",
         category = IconCategory.IPL_INSPIRED,
-        aliasClassName = "com.example.LauncherAliasMi"
+        aliasClassName = "com.example.LauncherAliasIplSrh"
     ),
-    CSK(
-        id = "csk",
-        displayName = "CSK Edition",
-        subtitle = "Gold & Blue Lion",
+    IPL_MI(
+        id = "ipl_mi",
+        displayName = "Mumbai Indians",
+        subtitle = "Royal Blue & Gold Vortex",
         category = IconCategory.IPL_INSPIRED,
-        aliasClassName = "com.example.LauncherAliasCsk"
+        aliasClassName = "com.example.LauncherAliasIplMi"
+    ),
+    IPL_RR(
+        id = "ipl_rr",
+        displayName = "Rajasthan Royals",
+        subtitle = "Pink & Blue Royalty",
+        category = IconCategory.IPL_INSPIRED,
+        aliasClassName = "com.example.LauncherAliasIplRr"
+    ),
+    IPL_CSK(
+        id = "ipl_csk",
+        displayName = "Chennai Super Kings",
+        subtitle = "Yellow & Blue Lion",
+        category = IconCategory.IPL_INSPIRED,
+        aliasClassName = "com.example.LauncherAliasIplCsk"
+    ),
+
+    INDIA_FLAG(
+        id = "india_flag",
+        displayName = "India Flag Edition",
+        subtitle = "Tricolour & Ashoka Chakra",
+        category = IconCategory.NATIONAL,
+        aliasClassName = "com.example.LauncherAliasIndiaFlag"
     )
 }
 
@@ -214,7 +266,7 @@ data class CucalcusSettings(
     val hapticEnabled: Boolean = true,
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 
-    val selectedIcon: AppIconOption = AppIconOption.CSK,
+    val selectedIcon: AppIconOption = AppIconOption.NORMAL_GREEN,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long

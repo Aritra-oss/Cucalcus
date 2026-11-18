@@ -50,14 +50,21 @@ import com.example.ui.theme.CucalcusTheme
 
 @DrawableRes
 fun AppIconOption.drawableRes(): Int = when (this) {
-    AppIconOption.QUADRANT -> R.drawable.ic_brand_quadrant
-    AppIconOption.INTERSECTION -> R.drawable.ic_brand_intersection
-    AppIconOption.NEGATIVE_SPACE -> R.drawable.ic_brand_negative_space
-    AppIconOption.PRECISION -> R.drawable.ic_brand_precision
-    AppIconOption.KKR -> R.drawable.ic_brand_kkr
-    AppIconOption.RCB -> R.drawable.ic_brand_rcb
-    AppIconOption.MI -> R.drawable.ic_brand_mi
-    AppIconOption.CSK -> R.drawable.ic_brand_csk
+    AppIconOption.NORMAL_GOLD -> R.drawable.ic_brand_normal_gold
+    AppIconOption.NORMAL_TEAL -> R.drawable.ic_brand_normal_teal
+    AppIconOption.NORMAL_GREEN -> R.drawable.ic_brand_normal_green
+    AppIconOption.NORMAL_MAROON -> R.drawable.ic_brand_normal_maroon
+    AppIconOption.NORMAL_CRIMSON -> R.drawable.ic_brand_normal_crimson
+    AppIconOption.NORMAL_BLUE -> R.drawable.ic_brand_normal_blue
+    AppIconOption.NORMAL_PURPLE -> R.drawable.ic_brand_normal_purple
+    AppIconOption.IPL_GT -> R.drawable.ic_brand_ipl_gt
+    AppIconOption.IPL_KKR -> R.drawable.ic_brand_ipl_kkr
+    AppIconOption.IPL_RCB -> R.drawable.ic_brand_ipl_rcb
+    AppIconOption.IPL_SRH -> R.drawable.ic_brand_ipl_srh
+    AppIconOption.IPL_MI -> R.drawable.ic_brand_ipl_mi
+    AppIconOption.IPL_RR -> R.drawable.ic_brand_ipl_rr
+    AppIconOption.IPL_CSK -> R.drawable.ic_brand_ipl_csk
+    AppIconOption.INDIA_FLAG -> R.drawable.ic_brand_india_flag
 }
 
 @Composable
@@ -73,7 +80,7 @@ fun AppIconSelectorSection(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SwissSectionHeader(
             title = "App Icon Studio",
-            subtitle = "Choose from 8 custom glossy icons (last one is default)"
+            subtitle = "Choose from 15 custom glossy icons (Green Edition is default)"
         )
 
         // Live Launcher Preview Card
@@ -235,7 +242,7 @@ fun AppIconSelectorSection(
             }
             OutlinedButton(
                 onClick = {
-                    pendingSelection = AppIconOption.CSK
+                    pendingSelection = AppIconOption.NORMAL_GREEN
                     onResetToDefault()
                 },
                 shape = RoundedCornerShape(50),

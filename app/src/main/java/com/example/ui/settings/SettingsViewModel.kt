@@ -208,7 +208,7 @@ class SettingsViewModel(
     }
 
     fun resetAppIconToDefault(): Boolean {
-        return applyAppIcon(AppIconOption.CSK)
+        return applyAppIcon(AppIconOption.NORMAL_GREEN)
     }
 
     suspend fun exportHistoryCsv(): String = historyRepository.exportCsv()
@@ -238,7 +238,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             backgroundImageManager.clearBackgroundImage()
             settingsRepository.resetAllSettings()
-            launcherIconManager.applyLauncherIcon(AppIconOption.CSK)
+            launcherIconManager.applyLauncherIcon(AppIconOption.INDIA_FLAG)
         }
     }
 
