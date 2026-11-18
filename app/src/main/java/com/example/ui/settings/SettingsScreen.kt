@@ -8,9 +8,12 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import com.example.ui.components.SettingsBodySkeleton
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -132,10 +135,19 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     var selectedFilter by remember { mutableStateOf(SettingsFilter.ALL) }
+    var isContentReady by remember { mutableStateOf(false) }
     var showCustomColorDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isContentReady) {
+        if (!isContentReady) {
+            BrandIconBitmapCache.warmUp(context)
+            delay(170)
+            isContentReady = true
+        }
+    }
 
     val galleryPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -177,7 +189,12 @@ fun SettingsScreen(
                     label = "settings_filter_fg"
                 )
                 Surface(
-                    onClick = { selectedFilter = filter },
+                    onClick = {
+                        if (filter == SettingsFilter.ALL && selectedFilter != SettingsFilter.ALL) {
+                            isContentReady = false
+                        }
+                        selectedFilter = filter
+                    },
                     shape = RoundedCornerShape(50),
                     color = pillBg,
                     border = BorderStroke(1.dp, if (isSelected) colors.accent else colors.border),
@@ -206,20 +223,26 @@ fun SettingsScreen(
             }
         }
 
+        val transitionMs = if (CucalcusTheme.reducedMotion) 0 else 180
         AnimatedContent(
-            targetState = selectedFilter,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            targetState = if (isContentReady) selectedFilter else null,
+            transitionSpec = {
+                fadeIn(tween(transitionMs)) togetherWith fadeOut(tween((transitionMs * 0.7f).toInt()))
+            },
             label = "settings_filter_content",
             modifier = Modifier.weight(1f)
         ) { activeFilter ->
-            val showAll = activeFilter == SettingsFilter.ALL
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
+            if (activeFilter == null) {
+                SettingsBodySkeleton()
+            } else {
+                val showAll = activeFilter == SettingsFilter.ALL
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
                 // =========================================================================
                 // THEME, BACKGROUND & ACCENT
                 // =========================================================================
@@ -801,6 +824,7 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+                }
             }
         }
     }

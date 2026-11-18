@@ -1,5 +1,7 @@
 package com.example.ui.settings
 
+import android.content.Context
+import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -35,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -47,6 +51,9 @@ import com.example.data.preferences.AppIconOption
 import com.example.data.preferences.IconCategory
 import com.example.ui.components.SwissSectionHeader
 import com.example.ui.theme.CucalcusTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 @DrawableRes
 fun AppIconOption.drawableRes(): Int = when (this) {
@@ -65,6 +72,59 @@ fun AppIconOption.drawableRes(): Int = when (this) {
     AppIconOption.IPL_RR -> R.drawable.ic_brand_ipl_rr
     AppIconOption.IPL_CSK -> R.drawable.ic_brand_ipl_csk
     AppIconOption.INDIA_FLAG -> R.drawable.ic_brand_india_flag
+}
+
+/**
+ * Decodes all 15 brand icons off the main thread (during Settings skeleton phase)
+ * so switching to Settings or App Icons renders with zero UI thread decode stutter.
+ */
+object BrandIconBitmapCache {
+    private val cache = ConcurrentHashMap<Int, ImageBitmap>()
+
+    fun getOrNull(@DrawableRes resId: Int): ImageBitmap? = cache[resId]
+
+    suspend fun warmUp(context: Context) {
+        withContext(Dispatchers.IO) {
+            val res = context.resources
+            val opts = BitmapFactory.Options().apply {
+                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+            }
+            for (option in AppIconOption.entries) {
+                val resId = option.drawableRes()
+                if (!cache.containsKey(resId)) {
+                    runCatching {
+                        BitmapFactory.decodeResource(res, resId, opts)?.asImageBitmap()
+                    }.getOrNull()?.let { bmp ->
+                        cache[resId] = bmp
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrandIconImage(
+    @DrawableRes resId: Int,
+    contentDescription: String,
+    modifier: Modifier = Modifier
+) {
+    val cached = remember(resId) { BrandIconBitmapCache.getOrNull(resId) }
+    if (cached != null) {
+        Image(
+            bitmap = cached,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    } else {
+        Image(
+            painter = painterResource(id = resId),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
@@ -96,10 +156,9 @@ fun AppIconSelectorSection(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painter = painterResource(id = pendingSelection.drawableRes()),
+                    BrandIconImage(
+                        resId = pendingSelection.drawableRes(),
                         contentDescription = "${pendingSelection.displayName} live preview",
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(70.dp)
                             .clip(RoundedCornerShape(18.dp))
@@ -176,10 +235,9 @@ fun AppIconSelectorSection(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(modifier = Modifier.fillMaxWidth()) {
-                                        Image(
-                                            painter = painterResource(id = option.drawableRes()),
+                                        BrandIconImage(
+                                            resId = option.drawableRes(),
                                             contentDescription = option.displayName,
-                                            contentScale = ContentScale.Crop,
                                             modifier = Modifier
                                                 .size(62.dp)
                                                 .aspectRatio(1f)
