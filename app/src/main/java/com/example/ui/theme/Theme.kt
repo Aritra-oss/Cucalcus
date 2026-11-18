@@ -20,8 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.example.data.preferences.AppThemeMode
+import com.example.data.preferences.AppBackgroundPreset
 import com.example.data.preferences.CucalcusSettings
+import java.io.File
 
 @Immutable
 data class CucalcusColors(
@@ -36,7 +37,8 @@ data class CucalcusColors(
     val border: Color,
     val error: Color,
     val success: Color,
-    val isDark: Boolean
+    val isDark: Boolean,
+    val hasBackgroundImage: Boolean = false
 )
 
 val LocalCucalcusColors = staticCompositionLocalOf {
@@ -52,7 +54,8 @@ val LocalCucalcusColors = staticCompositionLocalOf {
         border = CucalcusPalette.SubtleBorder,
         error = CucalcusPalette.ErrorRed,
         success = CucalcusPalette.SuccessGreen,
-        isDark = true
+        isDark = true,
+        hasBackgroundImage = false
     )
 }
 
@@ -93,11 +96,11 @@ fun isReducedMotionEnabled(context: Context): Boolean {
 }
 
 private val SwissShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(6.dp),
-    large = RoundedCornerShape(8.dp),
-    extraLarge = RoundedCornerShape(12.dp)
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
@@ -109,51 +112,52 @@ fun CucalcusTheme(
     val reducedMotion = remember(context) { isReducedMotionEnabled(context) }
     val animDuration = if (reducedMotion) 0 else 240
 
-    val targetAccent = Color(settings.activeAccentArgb)
-    val targetColors = when (settings.themeMode) {
-        AppThemeMode.OBSIDIAN_BLACK -> CucalcusColors(
-            mainBg = CucalcusPalette.MainBg,
-            secondaryBg = CucalcusPalette.SecondaryBg,
-            cardBg = CucalcusPalette.CardBg,
-            elevatedSurface = CucalcusPalette.ElevatedSurface,
-            primaryText = CucalcusPalette.PrimaryText,
-            secondaryText = CucalcusPalette.SecondaryText,
-            accent = targetAccent,
-            onAccent = contrastOnColor(targetAccent),
-            border = CucalcusPalette.SubtleBorder,
-            error = CucalcusPalette.ErrorRed,
-            success = CucalcusPalette.SuccessGreen,
-            isDark = true
-        )
-        AppThemeMode.GRAPHITE_DARK -> CucalcusColors(
-            mainBg = CucalcusPalette.GraphiteBg,
-            secondaryBg = CucalcusPalette.GraphiteSecondary,
-            cardBg = CucalcusPalette.GraphiteCard,
-            elevatedSurface = CucalcusPalette.GraphiteElevated,
-            primaryText = CucalcusPalette.PrimaryText,
-            secondaryText = CucalcusPalette.SecondaryText,
-            accent = targetAccent,
-            onAccent = contrastOnColor(targetAccent),
-            border = CucalcusPalette.GraphiteBorder,
-            error = CucalcusPalette.ErrorRed,
-            success = CucalcusPalette.SuccessGreen,
-            isDark = true
-        )
-        AppThemeMode.SWISS_PAPER_LIGHT -> CucalcusColors(
-            mainBg = CucalcusPalette.PaperBg,
-            secondaryBg = CucalcusPalette.PaperSecondary,
-            cardBg = CucalcusPalette.PaperCard,
-            elevatedSurface = CucalcusPalette.PaperElevated,
-            primaryText = CucalcusPalette.PaperText,
-            secondaryText = CucalcusPalette.PaperSecondaryText,
-            accent = targetAccent,
-            onAccent = contrastOnColor(targetAccent),
-            border = CucalcusPalette.PaperBorder,
-            error = CucalcusPalette.ErrorRed,
-            success = CucalcusPalette.SuccessGreen,
-            isDark = false
-        )
+    val hasActiveBgImage = remember(settings.backgroundImagePath) {
+        val path = settings.backgroundImagePath
+        !path.isNullOrBlank() && File(path).exists()
     }
+
+    val targetAccent = Color(settings.activeAccentArgb)
+    val basePalette = when {
+        hasActiveBgImage -> {
+            // Ensure translucent dark Swiss cards & legible light text over dimmed gallery wallpaper
+            val baseDark = if (settings.themeMode.isDark) {
+                surfacePaletteForTheme(settings.themeMode)
+            } else {
+                deriveSurfacePalette(Color(0xFF0E0E10L), true)
+            }
+            baseDark.copy(
+                secondaryBg = baseDark.secondaryBg.copy(alpha = 0.78f),
+                cardBg = baseDark.cardBg.copy(alpha = 0.78f),
+                elevatedSurface = baseDark.elevatedSurface.copy(alpha = 0.84f),
+                border = Color.White.copy(alpha = 0.16f),
+                primaryText = CucalcusPalette.PrimaryText,
+                secondaryText = Color(0xFFCAC8C2),
+                isDark = true
+            )
+        }
+        settings.backgroundPreset != AppBackgroundPreset.THEME_DEFAULT -> {
+            val bgColor = Color(settings.backgroundPreset.argbHex)
+            deriveSurfacePalette(bgColor, settings.backgroundPreset.isDark)
+        }
+        else -> surfacePaletteForTheme(settings.themeMode)
+    }
+
+    val targetColors = CucalcusColors(
+        mainBg = basePalette.mainBg,
+        secondaryBg = basePalette.secondaryBg,
+        cardBg = basePalette.cardBg,
+        elevatedSurface = basePalette.elevatedSurface,
+        primaryText = basePalette.primaryText,
+        secondaryText = basePalette.secondaryText,
+        accent = targetAccent,
+        onAccent = contrastOnColor(targetAccent),
+        border = basePalette.border,
+        error = CucalcusPalette.ErrorRed,
+        success = CucalcusPalette.SuccessGreen,
+        isDark = basePalette.isDark,
+        hasBackgroundImage = hasActiveBgImage
+    )
 
     val animMainBg by animateColorAsState(targetColors.mainBg, tween(animDuration), label = "mainBg")
     val animSecondaryBg by animateColorAsState(targetColors.secondaryBg, tween(animDuration), label = "secBg")

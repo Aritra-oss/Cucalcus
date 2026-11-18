@@ -23,7 +23,7 @@ object NumberFormatter {
         if (value.isNaN()) return "Error"
         if (value.isInfinite()) return "Overflow"
 
-        val cleanVal = if (abs(value) < 1e-14) 0.0 else value
+        val cleanVal = if (value == 0.0) 0.0 else value
         val precision = decimalPrecision.coerceIn(0, 12)
 
         if (formatMode == NumberFormatMode.SCIENTIFIC ||
@@ -31,14 +31,19 @@ object NumberFormatter {
         ) {
             val pattern = if (precision == 0) "0E0" else "0." + "#".repeat(precision) + "E0"
             val df = DecimalFormat(pattern, DecimalFormatSymbols(Locale.US))
-            return df.format(cleanVal).replace("E", "e")
+            val formatted = df.format(cleanVal).replace("E", "e")
+            return if (formatted == "-0") "0" else formatted
         }
 
         val bd = BigDecimal.valueOf(cleanVal)
             .setScale(precision, RoundingMode.HALF_UP)
-            .stripTrailingZeros()
+        val normalizedBd = if (bd.compareTo(BigDecimal.ZERO) == 0) {
+            BigDecimal.ZERO
+        } else {
+            bd.stripTrailingZeros()
+        }
 
-        val plain = bd.toPlainString()
+        val plain = normalizedBd.toPlainString()
         val parts = plain.split(".")
         val intPart = parts[0]
         val fracPart = if (parts.size > 1) parts[1] else null
@@ -62,16 +67,44 @@ object NumberFormatter {
     }
 
     /**
+     * Converts a computed double into an ungrouped expression token suitable for subsequent math edits.
+     */
+    fun toEditableExpressionNumber(value: Double, decimalPrecision: Int = 8): String {
+        if (value.isNaN() || value.isInfinite()) return "0"
+        val cleanVal = if (value == 0.0) 0.0 else value
+        val precision = decimalPrecision.coerceIn(0, 12)
+
+        if (cleanVal != 0.0 && (abs(cleanVal) >= 1e12 || abs(cleanVal) < 1e-9)) {
+            val pattern = if (precision == 0) "0E0" else "0." + "#".repeat(precision) + "E0"
+            val df = DecimalFormat(pattern, DecimalFormatSymbols(Locale.US))
+            return df.format(cleanVal).replace("-", "−")
+        }
+
+        val bd = BigDecimal.valueOf(cleanVal).setScale(precision, RoundingMode.HALF_UP)
+        val normalizedBd = if (bd.compareTo(BigDecimal.ZERO) == 0) {
+            BigDecimal.ZERO
+        } else {
+            bd.stripTrailingZeros()
+        }
+        return normalizedBd.toPlainString().replace("-", "−")
+    }
+
+    /**
      * Formats numbers inside an active expression string with thousands separators
-     * while preserving operators, functions, and trailing decimal points.
+     * while preserving operators, functions, scientific exponents (E+6), and trailing decimal points.
      */
     fun formatExpressionNumbers(
         expression: String,
         formatMode: NumberFormatMode
     ): String {
         if (expression.isEmpty() || formatMode == NumberFormatMode.SCIENTIFIC) return expression
-        val regex = Regex("""\d+(\.\d*)?""")
+        val regex = Regex("""(?<![Ee][+-−]?)\d+(\.\d*)?""")
         return regex.replace(expression) { match ->
+            val idx = match.range.first
+            // Skip digits belonging to a scientific exponent such as 1.5E1000
+            if (idx > 0 && (expression[idx - 1] == 'E' || expression[idx - 1] == 'e')) {
+                return@replace match.value
+            }
             val token = match.value
             val dotIdx = token.indexOf('.')
             val intDigits = if (dotIdx >= 0) token.substring(0, dotIdx) else token

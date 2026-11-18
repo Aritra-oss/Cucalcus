@@ -7,9 +7,10 @@ import com.example.data.preferences.SettingsRepository
 import com.example.data.remote.CurrencyApiService
 import com.example.data.repository.CurrencyRepository
 import com.example.data.repository.HistoryRepository
+import com.example.platform.BackgroundImageManager
+import com.example.platform.CustomIconManager
 import com.example.platform.HapticManager
 import com.example.platform.LauncherIconManager
-import com.example.platform.SoundManager
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.OkHttpClient
@@ -27,11 +28,13 @@ class CucalcusApp : Application() {
         private set
     lateinit var currencyRepository: CurrencyRepository
         private set
-    lateinit var soundManager: SoundManager
-        private set
     lateinit var hapticManager: HapticManager
         private set
     lateinit var launcherIconManager: LauncherIconManager
+        private set
+    lateinit var backgroundImageManager: BackgroundImageManager
+        private set
+    lateinit var customIconManager: CustomIconManager
         private set
 
     override fun onCreate() {
@@ -67,8 +70,9 @@ class CucalcusApp : Application() {
             converterDao = database.converterDao()
         )
 
-        soundManager = SoundManager()
         hapticManager = HapticManager(applicationContext)
         launcherIconManager = LauncherIconManager(applicationContext)
+        backgroundImageManager = BackgroundImageManager(applicationContext)
+        customIconManager = CustomIconManager(applicationContext)
     }
 }

@@ -87,7 +87,7 @@ private fun ToolField(
             unfocusedTextColor = colors.primaryText,
             cursorColor = colors.accent
         ),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     )
 }
@@ -101,7 +101,7 @@ private fun ToolResultPanel(
     val colors = CucalcusTheme.colors
     val displayFont = LocalDisplayFontFamily.current
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(20.dp),
         color = colors.cardBg,
         border = BorderStroke(1.dp, if (error != null) colors.error.copy(alpha = 0.6f) else colors.accent.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
@@ -148,7 +148,7 @@ private fun OptionChipRow(
         options.forEachIndexed { idx, (label, selected) ->
             Surface(
                 onClick = { onSelect(idx) },
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = if (selected) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
                 border = BorderStroke(1.dp, if (selected) colors.accent else colors.border),
                 modifier = Modifier.weight(1f)
@@ -411,22 +411,22 @@ private fun FractionToolView() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ToolField("Num 1", n1, { n1 = it }, KeyboardType.Number)
-                ToolField("Den 1", d1, { d1 = it }, KeyboardType.Number)
+                ToolField("Num 1", n1, { n1 = it }, KeyboardType.Ascii)
+                ToolField("Den 1", d1, { d1 = it }, KeyboardType.Ascii)
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ToolField("Num 2", n2, { n2 = it }, KeyboardType.Number)
-                ToolField("Den 2", d2, { d2 = it }, KeyboardType.Number)
+                ToolField("Num 2", n2, { n2 = it }, KeyboardType.Ascii)
+                ToolField("Den 2", d2, { d2 = it }, KeyboardType.Ascii)
             }
         }
         OptionChipRow(
             options = labels.mapIndexed { idx, s -> s to (opIdx == idx) },
             onSelect = { opIdx = it }
         )
-        val a = n1.toLongOrNull()
-        val b = d1.toLongOrNull()
-        val c = n2.toLongOrNull()
-        val d = d2.toLongOrNull()
+        val a = n1.trim().toLongOrNull()
+        val b = d1.trim().toLongOrNull()
+        val c = n2.trim().toLongOrNull()
+        val d = d2.trim().toLongOrNull()
         if (a != null && b != null && c != null && d != null) {
             ToolsEngine.calculateFraction(a, b, c, d, ops[opIdx]).fold(
                 onSuccess = { frac ->
@@ -453,8 +453,8 @@ private fun RatioToolView() {
     var c by remember { mutableStateOf("1920") }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(modifier = Modifier.weight(1f)) { ToolField("A", a, { a = it }, KeyboardType.Number) }
-            Column(modifier = Modifier.weight(1f)) { ToolField("B", b, { b = it }, KeyboardType.Number) }
+            Column(modifier = Modifier.weight(1f)) { ToolField("A", a, { a = it }, KeyboardType.Ascii) }
+            Column(modifier = Modifier.weight(1f)) { ToolField("B", b, { b = it }, KeyboardType.Ascii) }
         }
         ToolField("Proportion C (A:B = C:D, optional)", c, { c = it })
         val av = a.toLongOrNull()

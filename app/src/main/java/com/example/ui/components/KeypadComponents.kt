@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,16 +44,16 @@ enum class KeypadKeyKind {
     CLEAR
 }
 
-fun ButtonShapeOption.toComposeShape(cornerRadiusPercent: Int = 16): Shape = when (this) {
-    ButtonShapeOption.SQUARE -> RoundedCornerShape(0.dp)
-    ButtonShapeOption.SLIGHTLY_ROUNDED -> RoundedCornerShape(percent = 16)
-    ButtonShapeOption.ROUNDED -> RoundedCornerShape(percent = 34)
+fun ButtonShapeOption.toComposeShape(cornerRadiusPercent: Int = 18): Shape = when (this) {
+    ButtonShapeOption.SQUARE -> RoundedCornerShape(percent = 10)
+    ButtonShapeOption.SLIGHTLY_ROUNDED -> RoundedCornerShape(percent = 18)
+    ButtonShapeOption.ROUNDED -> RoundedCornerShape(percent = 32)
     ButtonShapeOption.SQUIRCLE -> RoundedCornerShape(percent = 42)
     ButtonShapeOption.CIRCULAR -> CircleShape
-    ButtonShapeOption.CHAMFERED -> CutCornerShape(11.dp)
-    ButtonShapeOption.DIAGONAL_CUT -> CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp, topEnd = 2.dp, bottomStart = 2.dp)
-    ButtonShapeOption.LEAF -> RoundedCornerShape(topStart = 20.dp, bottomEnd = 20.dp, topEnd = 4.dp, bottomStart = 4.dp)
-    ButtonShapeOption.CUSTOM_RADIUS -> RoundedCornerShape(percent = cornerRadiusPercent.coerceIn(0, 50))
+    ButtonShapeOption.CHAMFERED -> RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 10.dp, bottomEnd = 10.dp)
+    ButtonShapeOption.DIAGONAL_CUT -> RoundedCornerShape(topStart = 24.dp, bottomEnd = 24.dp, topEnd = 10.dp, bottomStart = 10.dp)
+    ButtonShapeOption.LEAF -> RoundedCornerShape(topStart = 28.dp, bottomEnd = 28.dp, topEnd = 12.dp, bottomStart = 12.dp)
+    ButtonShapeOption.CUSTOM_RADIUS -> RoundedCornerShape(percent = cornerRadiusPercent.coerceIn(8, 50))
 }
 
 @Composable
@@ -145,12 +144,14 @@ fun CalculatorKeyButton(
     }
     val resolvedFontSize = fontSize ?: (defaultSp * settings.fontScale * settings.buttonSizeScale).coerceIn(11f, 28f).sp
 
+    val resolvedBorder = if (settings.borderlessButtons) null else borderStroke
+
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
         shape = shape,
         color = baseBg,
-        border = borderStroke,
+        border = resolvedBorder,
         modifier = modifier
             .minimumInteractiveComponentSize()
             .graphicsLayer {

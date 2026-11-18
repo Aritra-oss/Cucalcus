@@ -93,7 +93,6 @@ fun SwissScreenTopBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.mainBg)
             .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
         Row(
@@ -145,7 +144,7 @@ fun ClipboardMathBanner(
         if (!expression.isNullOrBlank()) {
             Surface(
                 color = colors.cardBg,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(18.dp),
                 border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.6f)),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -180,8 +179,8 @@ fun ClipboardMathBanner(
                     }
                     Box(
                         modifier = Modifier
-                            .background(colors.accent.copy(alpha = 0.16f), RoundedCornerShape(3.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .background(colors.accent.copy(alpha = 0.16f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = "USE",

@@ -12,11 +12,11 @@ import com.example.domain.math.ExpressionParser
 import com.example.domain.math.NumberFormatMode
 import com.example.domain.math.NumberFormatter
 import com.example.platform.HapticManager
-import com.example.platform.SoundManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,29 +37,31 @@ data class CalculatorUiState(
 class CalculatorViewModel(
     private val settingsRepository: SettingsRepository,
     private val historyRepository: HistoryRepository,
-    private val soundManager: SoundManager,
     private val hapticManager: HapticManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CalculatorUiState())
     private var latestSettings = CucalcusSettings()
-    private var initializedFromSettings = false
 
     val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, CucalcusSettings())
 
-    val uiState: StateFlow<CalculatorUiState> = combine(_state, settings) { st, cfg ->
-        latestSettings = cfg
-        if (!initializedFromSettings) {
-            initializedFromSettings = true
+    init {
+        viewModelScope.launch {
+            val initial = settingsRepository.settingsFlow.first()
+            latestSettings = initial
             _state.update {
                 it.copy(
-                    isScientificExpanded = cfg.defaultScientificExpanded,
-                    angleMode = cfg.angleMode,
-                    memoryValue = cfg.calculatorMemory
+                    isScientificExpanded = initial.defaultScientificExpanded,
+                    angleMode = initial.angleMode,
+                    memoryValue = initial.calculatorMemory
                 )
             }
         }
+    }
+
+    val uiState: StateFlow<CalculatorUiState> = combine(_state, settings) { st, cfg ->
+        latestSettings = cfg
         val formattedExpr = NumberFormatter.formatExpressionNumbers(st.expression, cfg.numberFormatMode)
         st.copy(
             formattedExpression = formattedExpr,
@@ -67,24 +69,21 @@ class CalculatorViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, CalculatorUiState())
 
-    private fun triggerFeedback() {
+    private fun triggerHaptic() {
         val cfg = latestSettings
-        soundManager.playClick(cfg.soundStyle, cfg.soundVolume, cfg.soundEnabled)
         hapticManager.performTick(cfg.hapticStrength, cfg.hapticEnabled)
     }
 
     fun onDigit(digit: String) {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val base = if (current.justEvaluated) "" else current.expression
-            // Prevent multiple decimals in the current number token
             if (digit == ".") {
                 val lastNumber = base.takeLastWhile { it.isDigit() || it == '.' }
                 if (lastNumber.contains('.')) return@update current
                 val addition = if (lastNumber.isEmpty()) "0." else "."
                 return@update recalculate(current.copy(expression = base + addition, justEvaluated = false, errorMessage = null))
             }
-            // Avoid redundant leading zeros like 00 when current number is just "0"
             val nextExpr = if ((digit == "0" || digit == "00" || digit == "000") && base == "0") {
                 "0"
             } else if ((digit == "00" || digit == "000") && (base.isEmpty() || base.last() in listOf('+', '−', '×', '÷', '(', '^'))) {
@@ -97,29 +96,49 @@ class CalculatorViewModel(
     }
 
     fun onOperator(op: String) {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             var expr = current.expression
+            val symbol = if (op == "-") "−" else op
+
             if (expr.isEmpty()) {
-                if (op == "−" || op == "-") {
-                    return@update recalculate(current.copy(expression = "−", justEvaluated = false, errorMessage = null))
+                return@update if (symbol == "−") {
+                    recalculate(current.copy(expression = "−", justEvaluated = false, errorMessage = null))
+                } else {
+                    current
                 }
+            }
+
+            // Allow unary minus right after '(' or '^', but block binary operators right after '('
+            if (expr.last() == '(') {
+                return@update if (symbol == "−") {
+                    recalculate(current.copy(expression = expr + "−", justEvaluated = false, errorMessage = null))
+                } else {
+                    current
+                }
+            }
+
+            // If expression ends with "(−", replacing with another binary operator is invalid
+            if (expr.endsWith("(−") || expr == "−") {
                 return@update current
             }
+
             // Replace trailing binary operator if user changes operator
             val binaryOps = listOf("+", "−", "-", "×", "÷", "^")
             if (expr.endsWith("mod")) {
                 expr = expr.removeSuffix("mod")
-            } else if (expr.last().toString() in binaryOps && expr != "−" && expr != "-") {
+            } else if (expr.last().toString() in binaryOps) {
                 expr = expr.dropLast(1)
+                if (expr.endsWith("(") && symbol != "−") {
+                    return@update current
+                }
             }
-            val symbol = if (op == "-") "−" else op
             recalculate(current.copy(expression = expr + symbol, justEvaluated = false, errorMessage = null))
         }
     }
 
     fun onPercent() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             if (current.expression.isEmpty()) return@update current
             val last = current.expression.last()
@@ -132,7 +151,7 @@ class CalculatorViewModel(
     }
 
     fun onParenthesis() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val expr = if (current.justEvaluated) "" else current.expression
             val open = expr.count { it == '(' }
@@ -148,7 +167,7 @@ class CalculatorViewModel(
     }
 
     fun onOpenParen() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val expr = if (current.justEvaluated) "" else current.expression
             recalculate(current.copy(expression = expr + "(", justEvaluated = false, errorMessage = null))
@@ -156,11 +175,12 @@ class CalculatorViewModel(
     }
 
     fun onCloseParen() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val open = current.expression.count { it == '(' }
             val close = current.expression.count { it == ')' }
-            if (open > close) {
+            val last = current.expression.lastOrNull()
+            if (open > close && last != null && last != '(' && last !in listOf('+', '−', '×', '÷', '^')) {
                 recalculate(current.copy(expression = current.expression + ")", justEvaluated = false, errorMessage = null))
             } else {
                 current
@@ -169,17 +189,38 @@ class CalculatorViewModel(
     }
 
     fun onToggleSign() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val expr = current.expression
             if (expr.isEmpty()) {
                 return@update current.copy(expression = "−", justEvaluated = false, errorMessage = null)
             }
-            // If entire expression is wrapped in −(...), unwrap; else if simple number, toggle sign
+            if (expr == "−") {
+                return@update current.copy(expression = "", livePreview = "", justEvaluated = false, errorMessage = null)
+            }
+            val simpleLiteral = Regex("""^\d+(\.\d+)?([eE][+−-]?\d+)?$""")
+            val isOuterNegatedGroup = expr.startsWith("−(") && expr.endsWith(")") && run {
+                var depth = 0
+                var closedEarly = false
+                for (i in 1 until expr.lastIndex) {
+                    when (expr[i]) {
+                        '(' -> depth++
+                        ')' -> {
+                            depth--
+                            if (depth == 0) {
+                                closedEarly = true
+                                break
+                            }
+                        }
+                    }
+                }
+                !closedEarly && depth == 1
+            }
+
             val next = when {
-                expr.startsWith("−") && expr.drop(1).all { it.isDigit() || it == '.' } -> expr.drop(1)
-                expr.all { it.isDigit() || it == '.' } -> "−$expr"
-                expr.startsWith("−(") && expr.endsWith(")") -> expr.removePrefix("−(").dropLast(1)
+                expr.startsWith("−") && simpleLiteral.matches(expr.drop(1)) -> expr.drop(1)
+                simpleLiteral.matches(expr) -> "−$expr"
+                isOuterNegatedGroup -> expr.removePrefix("−(").dropLast(1)
                 else -> "−($expr)"
             }
             recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
@@ -187,17 +228,21 @@ class CalculatorViewModel(
     }
 
     fun onScientificFunction(fn: String) {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
-            val base = if (current.justEvaluated) "" else current.expression
+            val expr = current.expression
+            val base = if (current.justEvaluated) "" else expr
+            val endsWithValue = expr.isNotEmpty() &&
+                (expr.last().isDigit() || expr.last() in listOf(')', 'π', 'e', '%', '!'))
+
             val next = when (fn) {
-                "x²" -> if (current.expression.isNotEmpty()) "(${current.expression})^2" else ""
-                "1/x" -> if (current.expression.isNotEmpty()) "1÷(${current.expression})" else "1÷("
+                "x²" -> if (endsWithValue) "($expr)^2" else return@update current
+                "1/x" -> if (endsWithValue) "1÷($expr)" else "${base}1÷("
                 "√" -> "$base√("
                 "|x|" -> "${base}abs("
                 "eˣ" -> "${base}exp("
                 "10ˣ" -> "${base}10^("
-                "x!" -> if (current.expression.isNotEmpty()) "${current.expression}!" else current.expression
+                "x!" -> if (endsWithValue) "$expr!" else return@update current
                 "π" -> "${base}π"
                 "e" -> "${base}e"
                 else -> "$base$fn("
@@ -207,7 +252,7 @@ class CalculatorViewModel(
     }
 
     fun onBackspace() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             if (current.expression.isEmpty()) return@update current.copy(errorMessage = null, livePreview = "")
             val expr = current.expression
@@ -219,7 +264,7 @@ class CalculatorViewModel(
     }
 
     fun onClear() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update {
             it.copy(
                 expression = "",
@@ -231,12 +276,11 @@ class CalculatorViewModel(
     }
 
     fun onEquals() {
-        triggerFeedback()
+        triggerHaptic()
         val current = _state.value
         val raw = current.expression.trim()
         if (raw.isEmpty()) return
 
-        // Auto-balance trailing open parens when evaluating
         val openCount = raw.count { it == '(' }
         val closeCount = raw.count { it == ')' }
         val balanced = if (openCount > closeCount) raw + ")".repeat(openCount - closeCount) else raw
@@ -248,7 +292,6 @@ class CalculatorViewModel(
                     decimalPrecision = latestSettings.decimalPrecision,
                     formatMode = latestSettings.numberFormatMode
                 )
-                // Save to persistent Room history
                 viewModelScope.launch {
                     historyRepository.saveCalculation(
                         expression = NumberFormatter.formatExpressionNumbers(balanced, NumberFormatMode.INTERNATIONAL),
@@ -257,20 +300,14 @@ class CalculatorViewModel(
                         angleMode = current.angleMode.name
                     )
                 }
-                // Keep plain ungrouped number in expression so subsequent operations work cleanly
-                val plainNumber = NumberFormatter.formatResult(
+                val editableNumber = NumberFormatter.toEditableExpressionNumber(
                     value = result.value,
-                    decimalPrecision = latestSettings.decimalPrecision,
-                    formatMode = if (latestSettings.numberFormatMode == NumberFormatMode.SCIENTIFIC) {
-                        NumberFormatMode.SCIENTIFIC
-                    } else {
-                        NumberFormatMode.INTERNATIONAL
-                    }
-                ).replace(",", "").replace("-", "−")
+                    decimalPrecision = latestSettings.decimalPrecision
+                )
 
                 _state.update {
                     it.copy(
-                        expression = plainNumber,
+                        expression = editableNumber,
                         livePreview = "",
                         errorMessage = null,
                         justEvaluated = true
@@ -289,17 +326,17 @@ class CalculatorViewModel(
     }
 
     fun toggleScientific() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { it.copy(isScientificExpanded = !it.isScientificExpanded) }
     }
 
     fun toggleInverseSci() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { it.copy(isInverseSci = !it.isInverseSci) }
     }
 
     fun toggleAngleMode() {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val next = if (current.angleMode == AngleMode.DEG) AngleMode.RAD else AngleMode.DEG
             recalculate(current.copy(angleMode = next))
@@ -308,35 +345,38 @@ class CalculatorViewModel(
 
     // Memory functions
     fun onMemoryClear() {
-        triggerFeedback()
+        triggerHaptic()
         viewModelScope.launch { settingsRepository.updateMemory(0.0) }
     }
 
     fun onMemoryRecall() {
-        triggerFeedback()
+        triggerHaptic()
         val mem = latestSettings.calculatorMemory
-        val formatted = NumberFormatter.formatResult(mem, latestSettings.decimalPrecision, NumberFormatMode.INTERNATIONAL)
-            .replace(",", "")
-            .replace("-", "−")
+        val formatted = NumberFormatter.toEditableExpressionNumber(mem, latestSettings.decimalPrecision)
         _state.update { current ->
             val base = if (current.justEvaluated) "" else current.expression
-            recalculate(current.copy(expression = base + formatted, justEvaluated = false, errorMessage = null))
+            val next = if (base.isNotEmpty() && (base.last().isDigit() || base.last() == '.')) {
+                "$base×$formatted"
+            } else {
+                base + formatted
+            }
+            recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
         }
     }
 
     fun onMemoryAdd() {
-        triggerFeedback()
+        triggerHaptic()
         val value = currentEvaluatedValue() ?: return
         viewModelScope.launch {
-            settingsRepository.updateMemory(latestSettings.calculatorMemory + value)
+            settingsRepository.addToMemory(value)
         }
     }
 
     fun onMemorySubtract() {
-        triggerFeedback()
+        triggerHaptic()
         val value = currentEvaluatedValue() ?: return
         viewModelScope.launch {
-            settingsRepository.updateMemory(latestSettings.calculatorMemory - value)
+            settingsRepository.addToMemory(-value)
         }
     }
 
@@ -347,7 +387,7 @@ class CalculatorViewModel(
         return (eval as? EvalResult.Success)?.value
     }
 
-    fun loadExpressionFromHistory(expression: String, result: String) {
+    fun loadExpressionFromHistory(expression: String, @Suppress("UNUSED_PARAMETER") result: String) {
         _state.update { current ->
             val cleanExpr = expression.replace(",", "").replace("-", "−")
             recalculate(current.copy(expression = cleanExpr, justEvaluated = false, errorMessage = null))
@@ -360,7 +400,6 @@ class CalculatorViewModel(
             return
         }
         val trimmed = text.trim()
-        // Only suggest if it looks like a math expression (contains operator or function, max 80 chars)
         val hasMathOps = trimmed.any { it in listOf('+', '-', '*', '/', '×', '÷', '^', '%') } ||
             trimmed.contains("sin") || trimmed.contains("cos") || trimmed.contains("sqrt")
         val valid = trimmed.length in 3..80 && hasMathOps &&
@@ -371,7 +410,7 @@ class CalculatorViewModel(
     }
 
     fun useClipboardCandidate(expr: String) {
-        triggerFeedback()
+        triggerHaptic()
         _state.update { current ->
             val normalized = expr.replace("*", "×").replace("/", "÷").replace("-", "−").replace(",", "")
             recalculate(current.copy(expression = normalized, clipboardCandidate = null, justEvaluated = false, errorMessage = null))
@@ -401,12 +440,11 @@ class CalculatorViewModel(
     class Factory(
         private val settingsRepository: SettingsRepository,
         private val historyRepository: HistoryRepository,
-        private val soundManager: SoundManager,
         private val hapticManager: HapticManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return CalculatorViewModel(settingsRepository, historyRepository, soundManager, hapticManager) as T
+            return CalculatorViewModel(settingsRepository, historyRepository, hapticManager) as T
         }
     }
 }

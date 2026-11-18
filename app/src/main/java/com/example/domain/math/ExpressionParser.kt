@@ -7,6 +7,7 @@ import kotlin.math.asin
 import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.pow
@@ -37,6 +38,12 @@ sealed interface EvalResult {
  * factorial, modulo, calculator-style percentage, and DEG/RAD modes.
  */
 object ExpressionParser {
+
+    private val KEYWORDS = listOf(
+        "asin", "acos", "atan", "sqrt",
+        "sin", "cos", "tan", "log", "abs", "exp", "mod", "inv",
+        "pi", "ln", "sq", "e"
+    )
 
     fun evaluate(rawExpression: String, angleMode: AngleMode = AngleMode.DEG): EvalResult {
         val cleaned = rawExpression.trim()
@@ -94,10 +101,12 @@ object ExpressionParser {
     }
 
     private fun cleanFloatingPointNoise(value: Double): Double {
-        if (abs(value) < 1e-14) return 0.0
-        val nearest = value.roundToLong().toDouble()
-        if (abs(value - nearest) < 1e-12 && abs(nearest) < 1e12) {
-            return nearest
+        if (value == 0.0) return 0.0
+        if (abs(value) >= 1e-6 && abs(value) < 1e12) {
+            val nearest = value.roundToLong().toDouble()
+            if (abs(value - nearest) < 1e-12) {
+                return nearest
+            }
         }
         return value
     }
@@ -121,7 +130,6 @@ object ExpressionParser {
             .replace("×", "*")
             .replace("÷", "/")
             .replace("√", "sqrt")
-            .replace("π", "pi")
             .replace("sin⁻¹", "asin")
             .replace("cos⁻¹", "acos")
             .replace("tan⁻¹", "atan")
@@ -144,10 +152,11 @@ object ExpressionParser {
                         } else if (c == '.' && !hasDot) {
                             hasDot = true
                             i++
-                        } else if ((c == 'E' || c == 'e') && i + 1 < normalized.length &&
+                        } else if (c == 'E' && i + 1 < normalized.length &&
                             (normalized[i + 1].isDigit() || normalized[i + 1] == '+' || normalized[i + 1] == '-')
                         ) {
-                            // Scientific notation number literal like 1.5E-4 or 2e5
+                            // Uppercase 'E' is reserved for scientific notation literals (e.g., 1.5E-4),
+                            // preserving lowercase 'e' strictly as Euler's constant (e.g., 2e+3 = 2 * e + 3).
                             i++
                             if (i < normalized.length && (normalized[i] == '+' || normalized[i] == '-')) {
                                 i++
@@ -168,20 +177,27 @@ object ExpressionParser {
                         ?: throw MathEvalException(MathErrorType.SYNTAX_ERROR, "Invalid number")
                     rawTokens.add(Token.Number(num))
                 }
+                ch == 'π' -> {
+                    rawTokens.add(Token.Constant("pi"))
+                    i++
+                }
                 ch.isLetter() -> {
-                    val start = i
-                    while (i < normalized.length && (normalized[i].isLetter() || normalized[i].isDigit())) {
-                        // Stop before splitting 'e' followed by something? Actually functions are alphabetic, constants are pi, e
-                        i++
-                    }
-                    val word = normalized.substring(start, i).lowercase()
-                    when (word) {
-                        "pi" -> rawTokens.add(Token.Constant("pi"))
-                        "e" -> rawTokens.add(Token.Constant("e"))
-                        "mod" -> rawTokens.add(Token.Operator("mod"))
-                        "sin", "cos", "tan", "asin", "acos", "atan",
-                        "log", "ln", "sqrt", "abs", "exp", "sq", "inv" -> rawTokens.add(Token.Function(word))
-                        else -> throw MathEvalException(MathErrorType.SYNTAX_ERROR, "Unknown token: $word")
+                    val remaining = normalized.substring(i).lowercase()
+                    val matched = KEYWORDS.firstOrNull { remaining.startsWith(it) }
+                    if (matched != null) {
+                        i += matched.length
+                        when (matched) {
+                            "pi", "e" -> rawTokens.add(Token.Constant(matched))
+                            "mod" -> rawTokens.add(Token.Operator("mod"))
+                            else -> rawTokens.add(Token.Function(matched))
+                        }
+                    } else {
+                        val start = i
+                        while (i < normalized.length && normalized[i].isLetter()) i++
+                        throw MathEvalException(
+                            MathErrorType.SYNTAX_ERROR,
+                            "Unknown token: ${normalized.substring(start, i)}"
+                        )
                     }
                 }
                 ch == '(' -> {
@@ -209,7 +225,7 @@ object ExpressionParser {
         }
 
         // Insert implicit multiplication where appropriate:
-        // e.g. 2 pi -> 2 * pi, 2 (3) -> 2 * (3), ) ( -> ) * (, 2 sin(30) -> 2 * sin(30), pi 2 -> pi * 2, ) 2 -> ) * 2
+        // e.g. 2 π -> 2 * π, 2 (3) -> 2 * (3), ) ( -> ) * (, 2 sin(30) -> 2 * sin(30), π e -> π * e
         val result = mutableListOf<Token>()
         for (idx in rawTokens.indices) {
             val curr = rawTokens[idx]
@@ -243,7 +259,6 @@ object ExpressionParser {
         }
 
         private fun peek(): Token? = tokens.getOrNull(pos)
-        private fun peekNext(): Token? = tokens.getOrNull(pos + 1)
 
         // Handles + and -, including calculator-style percentage: A + B% = A + (A * B / 100)
         private fun parseAddSub(): Double {
@@ -252,8 +267,6 @@ object ExpressionParser {
                 val tok = peek()
                 if (tok is Token.Operator && (tok.symbol == "+" || tok.symbol == "-")) {
                     pos++
-                    // Check if RHS is a standalone percentage term (e.g., 100 + 10%)
-                    val rightTermStart = pos
                     val right = parseMulDivModWithPercentFlag()
                     left = if (right.isStandalonePercent) {
                         val delta = left * (right.rawValue / 100.0)
@@ -261,8 +274,6 @@ object ExpressionParser {
                     } else {
                         if (tok.symbol == "+") left + right.evaluatedValue else left - right.evaluatedValue
                     }
-                    @Suppress("UNUSED_VARIABLE")
-                    val unused = rightTermStart
                 } else {
                     break
                 }
@@ -273,13 +284,10 @@ object ExpressionParser {
         private data class TermResult(val evaluatedValue: Double, val rawValue: Double, val isStandalonePercent: Boolean)
 
         private fun parseMulDivModWithPercentFlag(): TermResult {
-            // Check if this multiplicative chain is a single postfix-% primary (no *, /, mod)
             val startPos = pos
             val valWithoutDiv = parseMulDivMod()
-            // Inspect if tokens[startPos..pos-1] ended with Token.Percent and had no * / mod at top level
             val consumed = tokens.subList(startPos, pos)
             if (consumed.isNotEmpty() && consumed.last() is Token.Percent) {
-                // Re-verify it had no binary * / mod at depth 0
                 var depth = 0
                 var hasTopMulDiv = false
                 for (t in consumed) {
@@ -351,7 +359,7 @@ object ExpressionParser {
             if (tok is Token.Operator && tok.symbol == "^") {
                 pos++
                 val exponent = parseUnary()
-                if (base < 0 && exponent != floorVal(exponent)) {
+                if (base < 0 && exponent != floor(exponent)) {
                     throw MathEvalException(MathErrorType.DOMAIN_ERROR, "Complex result not supported")
                 }
                 if (base == 0.0 && exponent < 0) {
@@ -365,8 +373,6 @@ object ExpressionParser {
             }
             return base
         }
-
-        private fun floorVal(x: Double): Double = kotlin.math.floor(x)
 
         private fun parsePostfix(): Double {
             var value = parsePrimary()
@@ -449,15 +455,15 @@ object ExpressionParser {
 
         private fun applyFunction(name: String, arg: Double): Double {
             return when (name) {
-                "sin" -> sin(toRadians(arg))
-                "cos" -> cos(toRadians(arg))
+                "sin" -> sin(toRadians(arg)).let { if (abs(it) < 1e-13) 0.0 else it }
+                "cos" -> cos(toRadians(arg)).let { if (abs(it) < 1e-13) 0.0 else it }
                 "tan" -> {
                     val rad = toRadians(arg)
                     val c = cos(rad)
                     if (abs(c) < 1e-12) {
                         throw MathEvalException(MathErrorType.DOMAIN_ERROR, "Tangent undefined at 90°")
                     }
-                    tan(rad)
+                    tan(rad).let { if (abs(it) < 1e-13) 0.0 else it }
                 }
                 "asin" -> {
                     if (arg < -1.0 || arg > 1.0) {

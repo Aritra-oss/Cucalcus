@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,9 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -85,9 +86,7 @@ fun HistoryScreen(
     var showExportMenu by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.mainBg)
+        modifier = Modifier.fillMaxSize()
     ) {
         SwissScreenTopBar(
             title = "Calculation History",
@@ -181,7 +180,7 @@ fun HistoryScreen(
                     unfocusedTextColor = colors.primaryText,
                     cursorColor = colors.accent
                 ),
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("history_search_input")
@@ -194,13 +193,13 @@ fun HistoryScreen(
             ) {
                 Surface(
                     onClick = viewModel::toggleSortOrder,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(50),
                     color = colors.cardBg,
                     border = BorderStroke(1.dp, colors.border),
                     modifier = Modifier.testTag("history_sort_button")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -220,7 +219,7 @@ fun HistoryScreen(
 
                 Surface(
                     onClick = viewModel::toggleFavoritesFilter,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(50),
                     color = if (state.favoritesOnly) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
                     border = BorderStroke(1.dp, if (state.favoritesOnly) colors.accent else colors.border),
                     modifier = Modifier.testTag("history_favorites_filter")
@@ -282,30 +281,34 @@ fun HistoryScreen(
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(state.entries, key = { it.id }) { item ->
-                    HistoryEntryCard(
-                        item = item,
-                        onTap = { onReuseCalculation(item.expression, item.result) },
-                        onCopy = {
-                            clipboard.setText(AnnotatedString(item.result))
-                            onShowMessage("Copied ${item.result}")
-                        },
-                        onShare = {
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "${item.expression} = ${item.result}\n— Cucalcus")
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Share Calculation"))
-                        },
-                        onTogglePin = { viewModel.togglePin(item) },
-                        onToggleFavorite = { viewModel.toggleFavorite(item) },
-                        onDelete = { viewModel.deleteEntry(item.id) }
-                    )
+                state.entries.forEach { item ->
+                    key(item.id) {
+                        HistoryEntryCard(
+                            item = item,
+                            onTap = { onReuseCalculation(item.expression, item.result) },
+                            onCopy = {
+                                clipboard.setText(AnnotatedString(item.result))
+                                onShowMessage("Copied ${item.result}")
+                            },
+                            onShare = {
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, "${item.expression} = ${item.result}\n— Cucalcus")
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Share Calculation"))
+                            },
+                            onTogglePin = { viewModel.togglePin(item) },
+                            onToggleFavorite = { viewModel.toggleFavorite(item) },
+                            onDelete = { viewModel.deleteEntry(item.id) }
+                        )
+                    }
                 }
             }
         }
@@ -314,6 +317,7 @@ fun HistoryScreen(
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
+            shape = RoundedCornerShape(24.dp),
             containerColor = colors.cardBg,
             title = { Text("Clear All History?", color = colors.primaryText) },
             text = {
@@ -360,7 +364,7 @@ private fun HistoryEntryCard(
     }
 
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(20.dp),
         color = colors.cardBg,
         border = BorderStroke(
             1.dp,
@@ -446,8 +450,9 @@ private fun HistoryEntryCard(
             ) {
                 Row(
                     modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(onClick = onCopy)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -462,8 +467,9 @@ private fun HistoryEntryCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Row(
                     modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(onClick = onShare)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -478,8 +484,9 @@ private fun HistoryEntryCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Row(
                     modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(onClick = onDelete)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(

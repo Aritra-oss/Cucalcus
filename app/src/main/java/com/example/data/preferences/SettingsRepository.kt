@@ -2,6 +2,7 @@ package com.example.data.preferences
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
@@ -11,8 +12,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.domain.math.AngleMode
-import com.example.domain.math.NumberFormatMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -22,6 +21,8 @@ class SettingsRepository(private val context: Context) {
 
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val BACKGROUND_PRESET = stringPreferencesKey("background_preset")
+        val BACKGROUND_IMAGE_PATH = stringPreferencesKey("background_image_path")
         val ACCENT_PRESET = stringPreferencesKey("accent_preset")
         val CUSTOM_ACCENT_ARGB = longPreferencesKey("custom_accent_argb")
 
@@ -32,6 +33,7 @@ class SettingsRepository(private val context: Context) {
 
         val BUTTON_SHAPE = stringPreferencesKey("button_shape")
         val BUTTON_CORNER_RADIUS_PERCENT = intPreferencesKey("button_corner_radius_percent")
+        val BORDERLESS_BUTTONS = booleanPreferencesKey("borderless_buttons")
         val BUTTON_SIZE_SCALE = floatPreferencesKey("button_size_scale")
         val BUTTON_SPACING_DP = floatPreferencesKey("button_spacing_dp")
         val BUTTON_OPACITY = floatPreferencesKey("button_opacity")
@@ -52,14 +54,11 @@ class SettingsRepository(private val context: Context) {
         val NUMBER_FORMAT_MODE = stringPreferencesKey("number_format_mode")
         val CLIPBOARD_DETECTION = booleanPreferencesKey("clipboard_detection")
 
-        val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
-        val SOUND_VOLUME = floatPreferencesKey("sound_volume")
-        val SOUND_STYLE = stringPreferencesKey("sound_style")
-
         val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         val HAPTIC_STRENGTH = stringPreferencesKey("haptic_strength")
 
         val SELECTED_ICON = stringPreferencesKey("selected_icon")
+        val CUSTOM_ICON_IMAGE_PATH = stringPreferencesKey("custom_icon_image_path")
         val CALCULATOR_MEMORY = doublePreferencesKey("calculator_memory")
 
         // Currency Cache Keys
@@ -70,42 +69,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     val settingsFlow: Flow<CucalcusSettings> = context.dataStore.data.map { prefs ->
-        val d = CucalcusSettings()
-        CucalcusSettings(
-            themeMode = parseEnum(prefs[Keys.THEME_MODE], d.themeMode),
-            accentPreset = parseEnum(prefs[Keys.ACCENT_PRESET], d.accentPreset),
-            customAccentArgb = prefs[Keys.CUSTOM_ACCENT_ARGB] ?: d.customAccentArgb,
-            displayFont = parseEnum(prefs[Keys.DISPLAY_FONT], d.displayFont),
-            buttonFont = parseEnum(prefs[Keys.BUTTON_FONT], d.buttonFont),
-            interfaceFont = parseEnum(prefs[Keys.INTERFACE_FONT], d.interfaceFont),
-            fontScale = prefs[Keys.FONT_SCALE] ?: d.fontScale,
-            buttonShape = parseEnum(prefs[Keys.BUTTON_SHAPE], d.buttonShape),
-            buttonCornerRadiusPercent = (prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] ?: d.buttonCornerRadiusPercent).coerceIn(0, 50),
-            buttonSizeScale = prefs[Keys.BUTTON_SIZE_SCALE] ?: d.buttonSizeScale,
-            buttonSpacingDp = prefs[Keys.BUTTON_SPACING_DP] ?: d.buttonSpacingDp,
-            buttonOpacity = prefs[Keys.BUTTON_OPACITY] ?: d.buttonOpacity,
-            buttonBgArgb = prefs[Keys.BUTTON_BG_ARGB] ?: d.buttonBgArgb,
-            buttonTextArgb = prefs[Keys.BUTTON_TEXT_ARGB] ?: d.buttonTextArgb,
-            useCustomButtonColors = prefs[Keys.USE_CUSTOM_BUTTON_COLORS] ?: d.useCustomButtonColors,
-            showDoubleZero = prefs[Keys.SHOW_DOUBLE_ZERO] ?: d.showDoubleZero,
-            showTripleZero = prefs[Keys.SHOW_TRIPLE_ZERO] ?: d.showTripleZero,
-            showDecimal = prefs[Keys.SHOW_DECIMAL] ?: d.showDecimal,
-            showPercent = prefs[Keys.SHOW_PERCENT] ?: d.showPercent,
-            showScientificToggle = prefs[Keys.SHOW_SCIENTIFIC_TOGGLE] ?: d.showScientificToggle,
-            keypadArrangement = parseEnum(prefs[Keys.KEYPAD_ARRANGEMENT], d.keypadArrangement),
-            defaultScientificExpanded = prefs[Keys.DEFAULT_SCIENTIFIC_EXPANDED] ?: d.defaultScientificExpanded,
-            angleMode = parseEnum(prefs[Keys.ANGLE_MODE], d.angleMode),
-            decimalPrecision = prefs[Keys.DECIMAL_PRECISION] ?: d.decimalPrecision,
-            numberFormatMode = parseEnum(prefs[Keys.NUMBER_FORMAT_MODE], d.numberFormatMode),
-            clipboardDetectionEnabled = prefs[Keys.CLIPBOARD_DETECTION] ?: d.clipboardDetectionEnabled,
-            soundEnabled = prefs[Keys.SOUND_ENABLED] ?: d.soundEnabled,
-            soundVolume = prefs[Keys.SOUND_VOLUME] ?: d.soundVolume,
-            soundStyle = parseEnum(prefs[Keys.SOUND_STYLE], d.soundStyle),
-            hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: d.hapticEnabled,
-            hapticStrength = parseEnum(prefs[Keys.HAPTIC_STRENGTH], d.hapticStrength),
-            selectedIcon = parseEnum(prefs[Keys.SELECTED_ICON], d.selectedIcon),
-            calculatorMemory = prefs[Keys.CALCULATOR_MEMORY] ?: d.calculatorMemory
-        )
+        mapPrefsToSettings(prefs)
     }
 
     suspend fun updateSettings(transform: (CucalcusSettings) -> CucalcusSettings) {
@@ -119,6 +83,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateMemory(value: Double) {
         context.dataStore.edit { prefs ->
             prefs[Keys.CALCULATOR_MEMORY] = value
+        }
+    }
+
+    suspend fun addToMemory(delta: Double) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[Keys.CALCULATOR_MEMORY] ?: 0.0
+            prefs[Keys.CALCULATOR_MEMORY] = current + delta
         }
     }
 
@@ -162,6 +133,8 @@ class SettingsRepository(private val context: Context) {
         val d = CucalcusSettings()
         return CucalcusSettings(
             themeMode = parseEnum(prefs[Keys.THEME_MODE], d.themeMode),
+            backgroundPreset = parseEnum(prefs[Keys.BACKGROUND_PRESET], d.backgroundPreset),
+            backgroundImagePath = prefs[Keys.BACKGROUND_IMAGE_PATH]?.takeIf { it.isNotBlank() },
             accentPreset = parseEnum(prefs[Keys.ACCENT_PRESET], d.accentPreset),
             customAccentArgb = prefs[Keys.CUSTOM_ACCENT_ARGB] ?: d.customAccentArgb,
             displayFont = parseEnum(prefs[Keys.DISPLAY_FONT], d.displayFont),
@@ -169,7 +142,8 @@ class SettingsRepository(private val context: Context) {
             interfaceFont = parseEnum(prefs[Keys.INTERFACE_FONT], d.interfaceFont),
             fontScale = prefs[Keys.FONT_SCALE] ?: d.fontScale,
             buttonShape = parseEnum(prefs[Keys.BUTTON_SHAPE], d.buttonShape),
-            buttonCornerRadiusPercent = (prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] ?: d.buttonCornerRadiusPercent).coerceIn(0, 50),
+            buttonCornerRadiusPercent = (prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] ?: d.buttonCornerRadiusPercent).coerceIn(8, 50),
+            borderlessButtons = prefs[Keys.BORDERLESS_BUTTONS] ?: d.borderlessButtons,
             buttonSizeScale = prefs[Keys.BUTTON_SIZE_SCALE] ?: d.buttonSizeScale,
             buttonSpacingDp = prefs[Keys.BUTTON_SPACING_DP] ?: d.buttonSpacingDp,
             buttonOpacity = prefs[Keys.BUTTON_OPACITY] ?: d.buttonOpacity,
@@ -187,18 +161,22 @@ class SettingsRepository(private val context: Context) {
             decimalPrecision = prefs[Keys.DECIMAL_PRECISION] ?: d.decimalPrecision,
             numberFormatMode = parseEnum(prefs[Keys.NUMBER_FORMAT_MODE], d.numberFormatMode),
             clipboardDetectionEnabled = prefs[Keys.CLIPBOARD_DETECTION] ?: d.clipboardDetectionEnabled,
-            soundEnabled = prefs[Keys.SOUND_ENABLED] ?: d.soundEnabled,
-            soundVolume = prefs[Keys.SOUND_VOLUME] ?: d.soundVolume,
-            soundStyle = parseEnum(prefs[Keys.SOUND_STYLE], d.soundStyle),
             hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: d.hapticEnabled,
             hapticStrength = parseEnum(prefs[Keys.HAPTIC_STRENGTH], d.hapticStrength),
             selectedIcon = parseEnum(prefs[Keys.SELECTED_ICON], d.selectedIcon),
+            customIconImagePath = prefs[Keys.CUSTOM_ICON_IMAGE_PATH]?.takeIf { it.isNotBlank() },
             calculatorMemory = prefs[Keys.CALCULATOR_MEMORY] ?: d.calculatorMemory
         )
     }
 
-    private fun writeSettingsToPrefs(prefs: androidx.datastore.preferences.core.MutablePreferences, s: CucalcusSettings) {
+    private fun writeSettingsToPrefs(prefs: MutablePreferences, s: CucalcusSettings) {
         prefs[Keys.THEME_MODE] = s.themeMode.name
+        prefs[Keys.BACKGROUND_PRESET] = s.backgroundPreset.name
+        if (s.backgroundImagePath.isNullOrBlank()) {
+            prefs.remove(Keys.BACKGROUND_IMAGE_PATH)
+        } else {
+            prefs[Keys.BACKGROUND_IMAGE_PATH] = s.backgroundImagePath
+        }
         prefs[Keys.ACCENT_PRESET] = s.accentPreset.name
         prefs[Keys.CUSTOM_ACCENT_ARGB] = s.customAccentArgb
         prefs[Keys.DISPLAY_FONT] = s.displayFont.name
@@ -207,6 +185,7 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.FONT_SCALE] = s.fontScale
         prefs[Keys.BUTTON_SHAPE] = s.buttonShape.name
         prefs[Keys.BUTTON_CORNER_RADIUS_PERCENT] = s.buttonCornerRadiusPercent
+        prefs[Keys.BORDERLESS_BUTTONS] = s.borderlessButtons
         prefs[Keys.BUTTON_SIZE_SCALE] = s.buttonSizeScale
         prefs[Keys.BUTTON_SPACING_DP] = s.buttonSpacingDp
         prefs[Keys.BUTTON_OPACITY] = s.buttonOpacity
@@ -224,12 +203,14 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.DECIMAL_PRECISION] = s.decimalPrecision
         prefs[Keys.NUMBER_FORMAT_MODE] = s.numberFormatMode.name
         prefs[Keys.CLIPBOARD_DETECTION] = s.clipboardDetectionEnabled
-        prefs[Keys.SOUND_ENABLED] = s.soundEnabled
-        prefs[Keys.SOUND_VOLUME] = s.soundVolume
-        prefs[Keys.SOUND_STYLE] = s.soundStyle.name
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.HAPTIC_STRENGTH] = s.hapticStrength.name
         prefs[Keys.SELECTED_ICON] = s.selectedIcon.name
+        if (s.customIconImagePath.isNullOrBlank()) {
+            prefs.remove(Keys.CUSTOM_ICON_IMAGE_PATH)
+        } else {
+            prefs[Keys.CUSTOM_ICON_IMAGE_PATH] = s.customIconImagePath
+        }
     }
 
     private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T): T {

@@ -15,10 +15,64 @@ enum class AccentPreset(val label: String, val argbHex: Long) {
     CUSTOM("Custom", 0xFFD6B56DL)
 }
 
-enum class AppThemeMode(val label: String) {
-    OBSIDIAN_BLACK("Obsidian Black (Default)"),
-    GRAPHITE_DARK("Graphite Charcoal"),
-    SWISS_PAPER_LIGHT("Swiss Paper Light")
+enum class AppThemeMode(
+    val label: String,
+    val swatchArgb: Long,
+    val isDark: Boolean
+) {
+    OBSIDIAN_BLACK("Obsidian Black", 0xFF080808L, true),
+    GRAPHITE_DARK("Graphite Charcoal", 0xFF14161BL, true),
+    SWISS_PAPER_LIGHT("Swiss Paper", 0xFFF6F3ECL, false),
+    MIDNIGHT_NAVY("Midnight Navy", 0xFF0A111FL, true),
+    DEEP_EMERALD("Deep Emerald", 0xFF081A14L, true),
+    BURGUNDY_NOIR("Burgundy Noir", 0xFF1A0A10L, true),
+    ROYAL_AMETHYST("Royal Amethyst", 0xFF130C22L, true),
+    NORDIC_SLATE("Nordic Slate", 0xFF101924L, true),
+    ESPRESSO_ROAST("Espresso Roast", 0xFF18110DL, true),
+    FOREST_MOSS("Forest Moss", 0xFF0E190FL, true),
+    CARBON_INDIGO("Carbon Indigo", 0xFF0B0E21L, true),
+    COPPER_CHARCOAL("Copper Ash", 0xFF19120FL, true),
+    TEAL_ABYSS("Teal Abyss", 0xFF081B1EL, true),
+    PLUM_VELVET("Plum Velvet", 0xFF1C0E1AL, true),
+    OLIVE_SLATE("Olive Slate", 0xFF13170EL, true),
+    CRIMSON_SHADOW("Crimson Shadow", 0xFF1D0B0CL, true),
+    WARM_SAND_LIGHT("Warm Sand", 0xFFEFE6D5L, false),
+    ICE_MIST_LIGHT("Ice Mist", 0xFFEBF2F7L, false),
+    SAGE_PAPER_LIGHT("Sage Paper", 0xFFE8F0E9L, false),
+    ROSE_QUARTZ_LIGHT("Rose Quartz", 0xFFF5ECEEL, false)
+}
+
+enum class AppBackgroundPreset(
+    val label: String,
+    val argbHex: Long,
+    val isDark: Boolean
+) {
+    THEME_DEFAULT("Match Theme", 0x00000000L, true),
+    OBSIDIAN("Obsidian", 0xFF080808L, true),
+    CHARCOAL("Charcoal", 0xFF141518L, true),
+    ONYX_BLUE("Onyx Blue", 0xFF0B111DL, true),
+    MIDNIGHT("Midnight", 0xFF0D1729L, true),
+    FOREST("Forest", 0xFF0A160EL, true),
+    EMERALD("Emerald", 0xFF071B16L, true),
+    TEAL("Deep Teal", 0xFF081D22L, true),
+    BURGUNDY("Burgundy", 0xFF1C0910L, true),
+    CRIMSON("Crimson", 0xFF210A0CL, true),
+    PLUM("Plum", 0xFF1C0C1BL, true),
+    AMETHYST("Amethyst", 0xFF140C24L, true),
+    INDIGO("Indigo", 0xFF0D1026L, true),
+    ESPRESSO("Espresso", 0xFF1A120DL, true),
+    BRONZE("Bronze", 0xFF1E160EL, true),
+    OLIVE("Olive", 0xFF15180DL, true),
+    SLATE("Steel Slate", 0xFF161D26L, true),
+    IVORY("Swiss Ivory", 0xFFF6F3ECL, false),
+    SAND("Warm Sand", 0xFFEFE5D2L, false),
+    ICE("Ice Mist", 0xFFEAF1F7L, false),
+    SAGE("Soft Sage", 0xFFE7EFE8L, false);
+
+    companion object {
+        val colorChoices: List<AppBackgroundPreset>
+            get() = entries.filter { it != THEME_DEFAULT }
+    }
 }
 
 enum class FontOption(val label: String) {
@@ -30,13 +84,13 @@ enum class FontOption(val label: String) {
 }
 
 enum class ButtonShapeOption(val label: String, val defaultRadiusPercent: Int? = null) {
-    SQUARE("Cornered Square", 0),
-    SLIGHTLY_ROUNDED("Soft Square", 16),
-    ROUNDED("Rounded", 34),
+    SQUARE("Soft Square", 10),
+    SLIGHTLY_ROUNDED("Rounded Tile", 18),
+    ROUNDED("Smooth", 32),
     SQUIRCLE("Squircle", 42),
     CIRCULAR("Full Circle", 50),
-    CHAMFERED("Chamfered"),
-    DIAGONAL_CUT("Swiss Bevel"),
+    CHAMFERED("Soft Arch"),
+    DIAGONAL_CUT("Swiss Curve"),
     LEAF("Leaf"),
     CUSTOM_RADIUS("Custom Radius")
 }
@@ -44,13 +98,6 @@ enum class ButtonShapeOption(val label: String, val defaultRadiusPercent: Int? =
 enum class KeypadArrangement(val label: String) {
     STANDARD("Standard (Operators Right)"),
     LEFT_HANDED("Left-Handed (Operators Left)")
-}
-
-enum class ClickSoundStyle(val label: String) {
-    SOFT_CLICK("Soft Click"),
-    MECHANICAL_CLICK("Mechanical Click"),
-    DIGITAL_CLICK("Digital Click"),
-    CLASSIC_CALCULATOR("Classic Calculator")
 }
 
 enum class HapticStrength(val label: String) {
@@ -74,28 +121,28 @@ enum class AppIconOption(
     QUADRANT(
         id = "quadrant",
         displayName = "Quadrant",
-        subtitle = "Black & Champagne Gold",
+        subtitle = "Monochrome Glass Grid",
         category = IconCategory.MATHEMATICAL,
         aliasClassName = "com.example.LauncherAliasQuadrant"
     ),
     INTERSECTION(
         id = "intersection",
-        displayName = "Intersection",
-        subtitle = "Interlocking Geometry",
+        displayName = "Orbit Silver",
+        subtitle = "Platinum Swirl & Glass",
         category = IconCategory.MATHEMATICAL,
         aliasClassName = "com.example.LauncherAliasIntersection"
     ),
     NEGATIVE_SPACE(
         id = "negative_space",
-        displayName = "Negative Space",
-        subtitle = "Minimalist Cutout Symbols",
+        displayName = "Prism Grid",
+        subtitle = "Blue, Violet & Amber",
         category = IconCategory.MATHEMATICAL,
         aliasClassName = "com.example.LauncherAliasNegativeSpace"
     ),
     PRECISION(
         id = "precision",
-        displayName = "Precision",
-        subtitle = "Platinum Silver Geometry",
+        displayName = "Emerald Crest",
+        subtitle = "Emerald & Cream Orbit",
         category = IconCategory.MATHEMATICAL,
         aliasClassName = "com.example.LauncherAliasPrecision"
     ),
@@ -109,21 +156,21 @@ enum class AppIconOption(
     RCB(
         id = "rcb",
         displayName = "RCB Edition",
-        subtitle = "Black, Red & Gold Lion",
+        subtitle = "Crimson & Gold Lion",
         category = IconCategory.IPL_INSPIRED,
         aliasClassName = "com.example.LauncherAliasRcb"
     ),
     MI(
         id = "mi",
         displayName = "MI Edition",
-        subtitle = "Deep Blue & Gold Energy",
+        subtitle = "Royal Blue & Gold",
         category = IconCategory.IPL_INSPIRED,
         aliasClassName = "com.example.LauncherAliasMi"
     ),
     CSK(
         id = "csk",
         displayName = "CSK Edition",
-        subtitle = "Yellow & Navy Lion",
+        subtitle = "Gold & Blue Lion",
         category = IconCategory.IPL_INSPIRED,
         aliasClassName = "com.example.LauncherAliasCsk"
     )
@@ -131,6 +178,8 @@ enum class AppIconOption(
 
 data class CucalcusSettings(
     val themeMode: AppThemeMode = AppThemeMode.OBSIDIAN_BLACK,
+    val backgroundPreset: AppBackgroundPreset = AppBackgroundPreset.THEME_DEFAULT,
+    val backgroundImagePath: String? = null,
     val accentPreset: AccentPreset = AccentPreset.CHAMPAGNE_GOLD,
     val customAccentArgb: Long = 0xFFD6B56DL,
 
@@ -140,7 +189,8 @@ data class CucalcusSettings(
     val fontScale: Float = 1.0f,
 
     val buttonShape: ButtonShapeOption = ButtonShapeOption.SLIGHTLY_ROUNDED,
-    val buttonCornerRadiusPercent: Int = 16, // 0 = sharp square, 50 = full circle/pill
+    val buttonCornerRadiusPercent: Int = 18, // 8..50 always softly rounded
+    val borderlessButtons: Boolean = false,
     val buttonSizeScale: Float = 1.0f,
     val buttonSpacingDp: Float = 6f,
     val buttonOpacity: Float = 1.0f,
@@ -161,14 +211,11 @@ data class CucalcusSettings(
     val numberFormatMode: NumberFormatMode = NumberFormatMode.INTERNATIONAL,
     val clipboardDetectionEnabled: Boolean = true,
 
-    val soundEnabled: Boolean = true,
-    val soundVolume: Float = 0.7f,
-    val soundStyle: ClickSoundStyle = ClickSoundStyle.SOFT_CLICK,
-
     val hapticEnabled: Boolean = true,
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 
     val selectedIcon: AppIconOption = AppIconOption.QUADRANT,
+    val customIconImagePath: String? = null,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long
@@ -177,6 +224,7 @@ data class CucalcusSettings(
     fun toJsonString(): String {
         val json = JSONObject()
         json.put("themeMode", themeMode.name)
+        json.put("backgroundPreset", backgroundPreset.name)
         json.put("accentPreset", accentPreset.name)
         json.put("customAccentArgb", customAccentArgb)
         json.put("displayFont", displayFont.name)
@@ -185,6 +233,7 @@ data class CucalcusSettings(
         json.put("fontScale", fontScale.toDouble())
         json.put("buttonShape", buttonShape.name)
         json.put("buttonCornerRadiusPercent", buttonCornerRadiusPercent)
+        json.put("borderlessButtons", borderlessButtons)
         json.put("buttonSizeScale", buttonSizeScale.toDouble())
         json.put("buttonSpacingDp", buttonSpacingDp.toDouble())
         json.put("buttonOpacity", buttonOpacity.toDouble())
@@ -202,9 +251,6 @@ data class CucalcusSettings(
         json.put("decimalPrecision", decimalPrecision)
         json.put("numberFormatMode", numberFormatMode.name)
         json.put("clipboardDetectionEnabled", clipboardDetectionEnabled)
-        json.put("soundEnabled", soundEnabled)
-        json.put("soundVolume", soundVolume.toDouble())
-        json.put("soundStyle", soundStyle.name)
         json.put("hapticEnabled", hapticEnabled)
         json.put("hapticStrength", hapticStrength.name)
         json.put("selectedIcon", selectedIcon.name)
@@ -219,6 +265,7 @@ data class CucalcusSettings(
                 Result.success(
                     CucalcusSettings(
                         themeMode = enumOrDefault(j.optString("themeMode"), defaults.themeMode),
+                        backgroundPreset = enumOrDefault(j.optString("backgroundPreset"), defaults.backgroundPreset),
                         accentPreset = enumOrDefault(j.optString("accentPreset"), defaults.accentPreset),
                         customAccentArgb = j.optLong("customAccentArgb", defaults.customAccentArgb),
                         displayFont = enumOrDefault(j.optString("displayFont"), defaults.displayFont),
@@ -226,7 +273,8 @@ data class CucalcusSettings(
                         interfaceFont = enumOrDefault(j.optString("interfaceFont"), defaults.interfaceFont),
                         fontScale = j.optDouble("fontScale", defaults.fontScale.toDouble()).toFloat().coerceIn(0.85f, 1.25f),
                         buttonShape = enumOrDefault(j.optString("buttonShape"), defaults.buttonShape),
-                        buttonCornerRadiusPercent = j.optInt("buttonCornerRadiusPercent", defaults.buttonCornerRadiusPercent).coerceIn(0, 50),
+                        buttonCornerRadiusPercent = j.optInt("buttonCornerRadiusPercent", defaults.buttonCornerRadiusPercent).coerceIn(8, 50),
+                        borderlessButtons = j.optBoolean("borderlessButtons", defaults.borderlessButtons),
                         buttonSizeScale = j.optDouble("buttonSizeScale", defaults.buttonSizeScale.toDouble()).toFloat().coerceIn(0.85f, 1.15f),
                         buttonSpacingDp = j.optDouble("buttonSpacingDp", defaults.buttonSpacingDp.toDouble()).toFloat().coerceIn(2f, 12f),
                         buttonOpacity = j.optDouble("buttonOpacity", defaults.buttonOpacity.toDouble()).toFloat().coerceIn(0.4f, 1.0f),
@@ -244,9 +292,6 @@ data class CucalcusSettings(
                         decimalPrecision = j.optInt("decimalPrecision", defaults.decimalPrecision).coerceIn(0, 12),
                         numberFormatMode = enumOrDefault(j.optString("numberFormatMode"), defaults.numberFormatMode),
                         clipboardDetectionEnabled = j.optBoolean("clipboardDetectionEnabled", defaults.clipboardDetectionEnabled),
-                        soundEnabled = j.optBoolean("soundEnabled", defaults.soundEnabled),
-                        soundVolume = j.optDouble("soundVolume", defaults.soundVolume.toDouble()).toFloat().coerceIn(0f, 1f),
-                        soundStyle = enumOrDefault(j.optString("soundStyle"), defaults.soundStyle),
                         hapticEnabled = j.optBoolean("hapticEnabled", defaults.hapticEnabled),
                         hapticStrength = enumOrDefault(j.optString("hapticStrength"), defaults.hapticStrength),
                         selectedIcon = enumOrDefault(j.optString("selectedIcon"), defaults.selectedIcon)

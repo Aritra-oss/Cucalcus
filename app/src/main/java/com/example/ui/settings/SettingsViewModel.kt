@@ -1,13 +1,14 @@
 package com.example.ui.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.preferences.AccentPreset
+import com.example.data.preferences.AppBackgroundPreset
 import com.example.data.preferences.AppIconOption
 import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.ButtonShapeOption
-import com.example.data.preferences.ClickSoundStyle
 import com.example.data.preferences.CucalcusSettings
 import com.example.data.preferences.FontOption
 import com.example.data.preferences.HapticStrength
@@ -16,9 +17,11 @@ import com.example.data.preferences.SettingsRepository
 import com.example.data.repository.HistoryRepository
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
+import com.example.platform.BackgroundImageManager
+import com.example.platform.CustomIconManager
 import com.example.platform.HapticManager
 import com.example.platform.LauncherIconManager
-import com.example.platform.SoundManager
+import com.example.platform.PinShortcutOutcome
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -27,9 +30,10 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val historyRepository: HistoryRepository,
-    private val soundManager: SoundManager,
     private val hapticManager: HapticManager,
-    private val launcherIconManager: LauncherIconManager
+    private val launcherIconManager: LauncherIconManager,
+    private val backgroundImageManager: BackgroundImageManager,
+    private val customIconManager: CustomIconManager
 ) : ViewModel() {
 
     val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsFlow
@@ -40,6 +44,29 @@ class SettingsViewModel(
 
     fun updateThemeMode(mode: AppThemeMode) {
         viewModelScope.launch { settingsRepository.updateSettings { it.copy(themeMode = mode) } }
+    }
+
+    fun setBackgroundPreset(preset: AppBackgroundPreset) {
+        viewModelScope.launch { settingsRepository.updateSettings { it.copy(backgroundPreset = preset) } }
+    }
+
+    fun importBackgroundImageFromUri(uri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val saved = backgroundImageManager.importFromGalleryUri(uri)
+            saved.onSuccess { path ->
+                settingsRepository.updateSettings { it.copy(backgroundImagePath = path) }
+                onResult(true)
+            }.onFailure {
+                onResult(false)
+            }
+        }
+    }
+
+    fun clearBackgroundImage() {
+        viewModelScope.launch {
+            backgroundImageManager.clearBackgroundImage()
+            settingsRepository.updateSettings { it.copy(backgroundImagePath = null) }
+        }
     }
 
     fun selectAccentPreset(preset: AccentPreset) {
@@ -82,7 +109,7 @@ class SettingsViewModel(
     }
 
     fun setButtonCornerRadiusPercent(percent: Int) {
-        val clamped = percent.coerceIn(0, 50)
+        val clamped = percent.coerceIn(8, 50)
         val matchedPreset = ButtonShapeOption.entries.firstOrNull { it.defaultRadiusPercent == clamped }
         viewModelScope.launch {
             settingsRepository.updateSettings { current ->
@@ -92,6 +119,10 @@ class SettingsViewModel(
                 )
             }
         }
+    }
+
+    fun setBorderlessButtons(borderless: Boolean) {
+        viewModelScope.launch { settingsRepository.updateSettings { it.copy(borderlessButtons = borderless) } }
     }
 
     fun setButtonSizeScale(scale: Float) {
@@ -162,23 +193,6 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.updateSettings { it.copy(clipboardDetectionEnabled = enabled) } }
     }
 
-    fun setSoundEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.updateSettings { it.copy(soundEnabled = enabled) } }
-    }
-
-    fun setSoundVolume(volume: Float) {
-        viewModelScope.launch { settingsRepository.updateSettings { it.copy(soundVolume = volume.coerceIn(0f, 1f)) } }
-    }
-
-    fun setSoundStyle(style: ClickSoundStyle) {
-        viewModelScope.launch { settingsRepository.updateSettings { it.copy(soundStyle = style) } }
-        soundManager.playClick(style, settings.value.soundVolume, enabled = true)
-    }
-
-    fun previewSound(style: ClickSoundStyle) {
-        soundManager.playClick(style, settings.value.soundVolume, enabled = true)
-    }
-
     fun setHapticEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.updateSettings { it.copy(hapticEnabled = enabled) } }
         if (enabled) hapticManager.performTick(settings.value.hapticStrength, true)
@@ -200,6 +214,32 @@ class SettingsViewModel(
         return applyAppIcon(AppIconOption.QUADRANT)
     }
 
+    fun importCustomIconFromUri(uri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val saved = customIconManager.importIconFromGalleryUri(uri)
+            saved.onSuccess { path ->
+                settingsRepository.updateSettings { it.copy(customIconImagePath = path) }
+                onResult(true)
+            }.onFailure {
+                onResult(false)
+            }
+        }
+    }
+
+    fun pinCustomGalleryIconToHome(onResult: (PinShortcutOutcome) -> Unit) {
+        viewModelScope.launch {
+            val outcome = customIconManager.pinGalleryShortcutToHome(settings.value.customIconImagePath)
+            onResult(outcome)
+        }
+    }
+
+    fun clearCustomGalleryIcon() {
+        viewModelScope.launch {
+            customIconManager.clearCustomIcon()
+            settingsRepository.updateSettings { it.copy(customIconImagePath = null) }
+        }
+    }
+
     suspend fun exportHistoryCsv(): String = historyRepository.exportCsv()
     suspend fun exportHistoryTxt(): String = historyRepository.exportTxt()
 
@@ -213,7 +253,12 @@ class SettingsViewModel(
         val parsed = CucalcusSettings.fromJsonString(rawJson)
         return parsed.map { imported ->
             viewModelScope.launch {
-                settingsRepository.updateSettings { imported }
+                settingsRepository.updateSettings { current ->
+                    imported.copy(
+                        backgroundImagePath = current.backgroundImagePath,
+                        customIconImagePath = current.customIconImagePath
+                    )
+                }
                 launcherIconManager.applyLauncherIcon(imported.selectedIcon)
             }
         }
@@ -221,6 +266,8 @@ class SettingsViewModel(
 
     fun resetAllSettings() {
         viewModelScope.launch {
+            backgroundImageManager.clearBackgroundImage()
+            customIconManager.clearCustomIcon()
             settingsRepository.resetAllSettings()
             launcherIconManager.applyLauncherIcon(AppIconOption.QUADRANT)
         }
@@ -229,18 +276,20 @@ class SettingsViewModel(
     class Factory(
         private val settingsRepository: SettingsRepository,
         private val historyRepository: HistoryRepository,
-        private val soundManager: SoundManager,
         private val hapticManager: HapticManager,
-        private val launcherIconManager: LauncherIconManager
+        private val launcherIconManager: LauncherIconManager,
+        private val backgroundImageManager: BackgroundImageManager,
+        private val customIconManager: CustomIconManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return SettingsViewModel(
                 settingsRepository,
                 historyRepository,
-                soundManager,
                 hapticManager,
-                launcherIconManager
+                launcherIconManager,
+                backgroundImageManager,
+                customIconManager
             ) as T
         }
     }

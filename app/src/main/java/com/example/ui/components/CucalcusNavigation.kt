@@ -70,6 +70,7 @@ fun CucalcusBottomBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
             .background(colors.secondaryBg)
     ) {
         HorizontalDivider(thickness = 1.dp, color = colors.border)
@@ -77,7 +78,7 @@ fun CucalcusBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -87,9 +88,13 @@ fun CucalcusBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .minimumInteractiveComponentSize()
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            if (selected) colors.accent.copy(alpha = 0.10f)
+                            else androidx.compose.ui.graphics.Color.Transparent
+                        )
                         .clickable { onNavigate(dest) }
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = 5.dp)
                         .testTag("nav_${dest.route}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -99,13 +104,14 @@ fun CucalcusBottomBar(
                     ) {
                         Box(
                             modifier = Modifier
-                                .width(22.dp)
-                                .height(2.dp)
+                                .width(24.dp)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(50))
                                 .background(
-                                    if (selected) colors.accent else colors.secondaryBg
+                                    if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent
                                 )
                         )
-                        Spacer(modifier = Modifier.height(5.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Icon(
                             imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
                             contentDescription = dest.label,
@@ -160,8 +166,8 @@ fun CucalcusNavRail(
                         .fillMaxWidth()
                         .padding(horizontal = 6.dp)
                         .minimumInteractiveComponentSize()
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (selected) colors.accent.copy(alpha = 0.12f) else colors.secondaryBg)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) colors.accent.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
                         .clickable { onNavigate(dest) }
                         .padding(vertical = 8.dp)
                         .testTag("nav_rail_${dest.route}"),

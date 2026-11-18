@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
+import kotlin.math.E
 import kotlin.math.PI
 
 class ExampleUnitTest {
@@ -32,9 +33,36 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun `expression parser euler e vs scientific notation and adjacent constants`() {
+        // Lowercase e is always Euler's constant even when followed by +3 or -1
+        val eulerAdd = ExpressionParser.evaluate("2e+3") as EvalResult.Success
+        assertEquals(2.0 * E + 3.0, eulerAdd.value, 1e-9)
+
+        val eulerSub = ExpressionParser.evaluate("2e−1") as EvalResult.Success
+        assertEquals(2.0 * E - 1.0, eulerSub.value, 1e-9)
+
+        // Adjacent constants & functions multiply implicitly without token collision
+        val piEuler = ExpressionParser.evaluate("πe") as EvalResult.Success
+        assertEquals(PI * E, piEuler.value, 1e-9)
+
+        val eulerPi = ExpressionParser.evaluate("eπ") as EvalResult.Success
+        assertEquals(E * PI, eulerPi.value, 1e-9)
+
+        val sciLiteral = ExpressionParser.evaluate("1.5E+3") as EvalResult.Success
+        assertEquals(1500.0, sciLiteral.value, 1e-9)
+
+        // Very small non-zero results are preserved rather than clamped to 0.0
+        val tiny = ExpressionParser.evaluate("10^−16") as EvalResult.Success
+        assertEquals(1e-16, tiny.value, 1e-22)
+    }
+
+    @Test
     fun `expression parser scientific and percentage and errors`() {
         val sin30 = ExpressionParser.evaluate("sin(30)", AngleMode.DEG) as EvalResult.Success
         assertEquals(0.5, sin30.value, 1e-9)
+
+        val sin180 = ExpressionParser.evaluate("sin(180)", AngleMode.DEG) as EvalResult.Success
+        assertEquals(0.0, sin180.value, 1e-12)
 
         val cosPi = ExpressionParser.evaluate("cos(π)", AngleMode.RAD) as EvalResult.Success
         assertEquals(-1.0, cosPi.value, 1e-9)
@@ -53,10 +81,13 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun `number formatter grouping modes`() {
+    fun `number formatter grouping modes and negative zero handling`() {
         assertEquals("1,234,567.89", NumberFormatter.formatResult(1234567.89, 2, NumberFormatMode.INTERNATIONAL))
         assertEquals("12,34,567.89", NumberFormatter.formatResult(1234567.89, 2, NumberFormatMode.INDIAN))
         assertTrue(NumberFormatter.formatResult(1234567.0, 2, NumberFormatMode.SCIENTIFIC).contains("e"))
+        assertEquals("0", NumberFormatter.formatResult(-0.0, 4, NumberFormatMode.INTERNATIONAL))
+        assertEquals("0", NumberFormatter.formatResult(-0.0001, 2, NumberFormatMode.INTERNATIONAL))
+        assertEquals("1,000+1.5E1000", NumberFormatter.formatExpressionNumbers("1000+1.5E1000", NumberFormatMode.INTERNATIONAL))
     }
 
     @Test
@@ -69,6 +100,7 @@ class ExampleUnitTest {
         val c = UnitConverterEngine.findUnitById("c")!!
         val f = UnitConverterEngine.findUnitById("f")!!
         assertEquals(212.0, UnitConverterEngine.convert(100.0, c, f), 1e-9)
+        assertEquals(-40.0, UnitConverterEngine.convert(-40.0, c, f), 1e-9)
 
         val kmh = UnitConverterEngine.findUnitById("kmh")!!
         val mps = UnitConverterEngine.findUnitById("mps")!!

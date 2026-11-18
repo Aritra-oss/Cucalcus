@@ -270,7 +270,8 @@ class ConverterViewModel(
         to: UnitDefinition,
         cfg: CucalcusSettings
     ): String {
-        val valNum = inputText.trim().toDoubleOrNull() ?: return "—"
+        val cleaned = inputText.trim().replace(",", "").replace("−", "-")
+        val valNum = cleaned.toDoubleOrNull() ?: return "—"
         val converted = UnitConverterEngine.convert(valNum, from, to)
         if (converted.isNaN() || converted.isInfinite()) return "—"
         return NumberFormatter.formatResult(converted, cfg.decimalPrecision, cfg.numberFormatMode)
@@ -292,7 +293,8 @@ class ConverterViewModel(
         val unitCrossRate = toRate / fromRate
         val rateDisplay = "1 ${from.code} = ${NumberFormatter.formatResult(unitCrossRate, 4, NumberFormatMode.INTERNATIONAL)} ${to.code}"
 
-        val amount = inputText.trim().toDoubleOrNull() ?: return "—" to rateDisplay
+        val cleaned = inputText.trim().replace(",", "").replace("−", "-")
+        val amount = cleaned.toDoubleOrNull() ?: return "—" to rateDisplay
         val converted = amount * unitCrossRate
         val formatted = NumberFormatter.formatResult(
             converted,

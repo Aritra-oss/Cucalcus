@@ -1,5 +1,6 @@
 package com.example
 
+import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,9 +25,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,7 +41,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.CucalcusSettings
 import com.example.ui.calculator.CalculatorScreen
 import com.example.ui.calculator.CalculatorViewModel
@@ -66,23 +72,29 @@ class MainActivity : ComponentActivity() {
             val settings by app.settingsRepository.settingsFlow
                 .collectAsStateWithLifecycle(initialValue = CucalcusSettings())
 
-            val isLight = settings.themeMode == AppThemeMode.SWISS_PAPER_LIGHT
-            LaunchedEffect(isLight) {
-                enableEdgeToEdge(
-                    statusBarStyle = if (isLight) {
-                        SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
-                    } else {
-                        SystemBarStyle.dark(AndroidColor.TRANSPARENT)
-                    },
-                    navigationBarStyle = if (isLight) {
-                        SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
-                    } else {
-                        SystemBarStyle.dark(AndroidColor.TRANSPARENT)
-                    }
-                )
+            var blurredBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+            LaunchedEffect(settings.backgroundImagePath) {
+                blurredBgBitmap = app.backgroundImageManager.loadLightlyBlurredBitmap(settings.backgroundImagePath)
             }
 
             CucalcusTheme(settings = settings) {
+                val colors = CucalcusTheme.colors
+                val isLight = !colors.isDark
+                LaunchedEffect(isLight) {
+                    enableEdgeToEdge(
+                        statusBarStyle = if (isLight) {
+                            SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                        } else {
+                            SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                        },
+                        navigationBarStyle = if (isLight) {
+                            SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                        } else {
+                            SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                        }
+                    )
+                }
+
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route ?: CucalcusRoute.CALCULATOR.route
@@ -102,7 +114,6 @@ class MainActivity : ComponentActivity() {
                     factory = CalculatorViewModel.Factory(
                         app.settingsRepository,
                         app.historyRepository,
-                        app.soundManager,
                         app.hapticManager
                     )
                 )
@@ -122,9 +133,10 @@ class MainActivity : ComponentActivity() {
                     factory = SettingsViewModel.Factory(
                         app.settingsRepository,
                         app.historyRepository,
-                        app.soundManager,
                         app.hapticManager,
-                        app.launcherIconManager
+                        app.launcherIconManager,
+                        app.backgroundImageManager,
+                        app.customIconManager
                     )
                 )
 
@@ -140,7 +152,6 @@ class MainActivity : ComponentActivity() {
 
                 val reducedMotion = CucalcusTheme.reducedMotion
                 val animMs = if (reducedMotion) 0 else 180
-                val colors = CucalcusTheme.colors
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -149,8 +160,24 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val useNavRail = maxWidth >= 720.dp
 
+                    val activeBitmap = blurredBgBitmap
+                    if (activeBitmap != null) {
+                        Image(
+                            bitmap = activeBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Slight dim scrim keeping gallery picture visible while preserving crisp contrast
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.44f))
+                        )
+                    }
+
                     Scaffold(
-                        containerColor = colors.mainBg,
+                        containerColor = Color.Transparent,
                         contentWindowInsets = WindowInsets(0, 0, 0, 0),
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                         bottomBar = {

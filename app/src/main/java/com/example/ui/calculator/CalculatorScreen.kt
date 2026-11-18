@@ -81,9 +81,7 @@ fun CalculatorScreen(
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.mainBg)
+        modifier = Modifier.fillMaxSize()
     ) {
         val isLandscape = maxWidth > maxHeight && maxWidth > 540.dp
         if (isLandscape) {
@@ -127,6 +125,7 @@ fun CalculatorScreen(
                     )
                     MemoryControlRow(
                         memoryValue = state.memoryValue,
+                        borderless = settings.borderlessButtons,
                         onClear = viewModel::onMemoryClear,
                         onRecall = viewModel::onMemoryRecall,
                         onAdd = viewModel::onMemoryAdd,
@@ -202,6 +201,7 @@ fun CalculatorScreen(
                 )
                 MemoryControlRow(
                     memoryValue = state.memoryValue,
+                    borderless = settings.borderlessButtons,
                     onClear = viewModel::onMemoryClear,
                     onRecall = viewModel::onMemoryRecall,
                     onAdd = viewModel::onMemoryAdd,
@@ -291,7 +291,7 @@ private fun CalculatorTopControls(
             )
             Surface(
                 onClick = onToggleAngle,
-                shape = RoundedCornerShape(3.dp),
+                shape = RoundedCornerShape(50),
                 color = colors.cardBg,
                 border = BorderStroke(1.dp, colors.border),
                 modifier = Modifier.testTag("angle_mode_toggle")
@@ -300,7 +300,7 @@ private fun CalculatorTopControls(
                     text = state.angleMode.name,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = colors.accent,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                 )
             }
         }
@@ -312,7 +312,7 @@ private fun CalculatorTopControls(
             if (settings.showScientificToggle) {
                 Surface(
                     onClick = onToggleSci,
-                    shape = RoundedCornerShape(3.dp),
+                    shape = RoundedCornerShape(50),
                     color = if (state.isScientificExpanded) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
                     border = BorderStroke(
                         1.dp,
@@ -399,7 +399,7 @@ private fun CalculatorDisplayPanel(
     }
 
     Surface(
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(22.dp),
         color = colors.secondaryBg,
         border = BorderStroke(1.dp, colors.border),
         modifier = modifier
@@ -430,7 +430,7 @@ private fun CalculatorDisplayPanel(
                         NumberFormatMode.INTERNATIONAL
                     )
                     Surface(
-                        shape = RoundedCornerShape(3.dp),
+                        shape = RoundedCornerShape(50),
                         color = colors.accent.copy(alpha = 0.14f),
                         border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.4f))
                     ) {
@@ -498,6 +498,7 @@ private fun CalculatorDisplayPanel(
 @Composable
 private fun MemoryControlRow(
     memoryValue: Double,
+    borderless: Boolean,
     onClear: () -> Unit,
     onRecall: () -> Unit,
     onAdd: () -> Unit,
@@ -506,6 +507,7 @@ private fun MemoryControlRow(
 ) {
     val colors = CucalcusTheme.colors
     val hasMemory = abs(memoryValue) > 1e-14
+    val keyBorder = if (borderless) null else BorderStroke(1.dp, colors.border)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -525,9 +527,9 @@ private fun MemoryControlRow(
             ).forEach { (label, action) ->
                 Surface(
                     onClick = action,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = colors.cardBg,
-                    border = BorderStroke(1.dp, colors.border),
+                    border = keyBorder,
                     modifier = Modifier.testTag("mem_$label")
                 ) {
                     Text(
@@ -538,7 +540,7 @@ private fun MemoryControlRow(
                         } else {
                             colors.primaryText
                         },
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -546,9 +548,9 @@ private fun MemoryControlRow(
 
         Surface(
             onClick = onBackspace,
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(14.dp),
             color = colors.elevatedSurface,
-            border = BorderStroke(1.dp, colors.border),
+            border = keyBorder,
             modifier = Modifier.testTag("key_backspace")
         ) {
             Row(
