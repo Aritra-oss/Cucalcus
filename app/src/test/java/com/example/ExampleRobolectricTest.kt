@@ -26,7 +26,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
         assertEquals("Cucalcus", appName)
-        assertEquals(8, AppIconOption.entries.size)
+        assertEquals(15, AppIconOption.entries.size)
         assertEquals(20, AppThemeMode.entries.size)
         assertEquals(20, AppBackgroundPreset.colorChoices.size)
     }
@@ -44,7 +44,7 @@ class ExampleRobolectricTest {
             showDoubleZero = true,
             showTripleZero = true,
             decimalPrecision = 6,
-            selectedIcon = AppIconOption.KKR
+            selectedIcon = AppIconOption.IPL_KKR
         )
         val json = original.toJsonString()
         val restored = CucalcusSettings.fromJsonString(json).getOrThrow()
