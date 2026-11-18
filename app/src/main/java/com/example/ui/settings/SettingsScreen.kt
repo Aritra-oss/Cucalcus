@@ -535,7 +535,6 @@ fun SettingsScreen(
                 if (showAll || activeFilter == SettingsFilter.ICONS) {
                     AppIconSelectorSection(
                         activeIcon = settings.selectedIcon,
-                        customIconPath = settings.customIconImagePath,
                         onApplyIcon = { option ->
                             val ok = viewModel.applyAppIcon(option)
                             onShowMessage(
@@ -545,11 +544,8 @@ fun SettingsScreen(
                         },
                         onResetToDefault = {
                             viewModel.resetAppIconToDefault()
-                            onShowMessage("Launcher icon reset to Quadrant")
+                            onShowMessage("Launcher icon reset to default")
                         },
-                        onImportGalleryIcon = viewModel::importCustomIconFromUri,
-                        onPinGalleryIcon = viewModel::pinCustomGalleryIconToHome,
-                        onClearGalleryIcon = viewModel::clearCustomGalleryIcon,
                         onShowMessage = onShowMessage
                     )
                 }

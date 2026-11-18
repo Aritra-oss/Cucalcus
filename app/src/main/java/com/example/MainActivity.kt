@@ -135,8 +135,7 @@ class MainActivity : ComponentActivity() {
                         app.historyRepository,
                         app.hapticManager,
                         app.launcherIconManager,
-                        app.backgroundImageManager,
-                        app.customIconManager
+                        app.backgroundImageManager
                     )
                 )
 

@@ -214,8 +214,7 @@ data class CucalcusSettings(
     val hapticEnabled: Boolean = true,
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 
-    val selectedIcon: AppIconOption = AppIconOption.QUADRANT,
-    val customIconImagePath: String? = null,
+    val selectedIcon: AppIconOption = AppIconOption.CSK,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long

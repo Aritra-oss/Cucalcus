@@ -58,7 +58,6 @@ class SettingsRepository(private val context: Context) {
         val HAPTIC_STRENGTH = stringPreferencesKey("haptic_strength")
 
         val SELECTED_ICON = stringPreferencesKey("selected_icon")
-        val CUSTOM_ICON_IMAGE_PATH = stringPreferencesKey("custom_icon_image_path")
         val CALCULATOR_MEMORY = doublePreferencesKey("calculator_memory")
 
         // Currency Cache Keys
@@ -164,7 +163,6 @@ class SettingsRepository(private val context: Context) {
             hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: d.hapticEnabled,
             hapticStrength = parseEnum(prefs[Keys.HAPTIC_STRENGTH], d.hapticStrength),
             selectedIcon = parseEnum(prefs[Keys.SELECTED_ICON], d.selectedIcon),
-            customIconImagePath = prefs[Keys.CUSTOM_ICON_IMAGE_PATH]?.takeIf { it.isNotBlank() },
             calculatorMemory = prefs[Keys.CALCULATOR_MEMORY] ?: d.calculatorMemory
         )
     }
@@ -206,11 +204,6 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.HAPTIC_STRENGTH] = s.hapticStrength.name
         prefs[Keys.SELECTED_ICON] = s.selectedIcon.name
-        if (s.customIconImagePath.isNullOrBlank()) {
-            prefs.remove(Keys.CUSTOM_ICON_IMAGE_PATH)
-        } else {
-            prefs[Keys.CUSTOM_ICON_IMAGE_PATH] = s.customIconImagePath
-        }
     }
 
     private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T): T {

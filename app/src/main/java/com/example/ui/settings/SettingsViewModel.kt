@@ -18,10 +18,8 @@ import com.example.data.repository.HistoryRepository
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
 import com.example.platform.BackgroundImageManager
-import com.example.platform.CustomIconManager
 import com.example.platform.HapticManager
 import com.example.platform.LauncherIconManager
-import com.example.platform.PinShortcutOutcome
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -32,8 +30,7 @@ class SettingsViewModel(
     private val historyRepository: HistoryRepository,
     private val hapticManager: HapticManager,
     private val launcherIconManager: LauncherIconManager,
-    private val backgroundImageManager: BackgroundImageManager,
-    private val customIconManager: CustomIconManager
+    private val backgroundImageManager: BackgroundImageManager
 ) : ViewModel() {
 
     val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsFlow
@@ -211,33 +208,7 @@ class SettingsViewModel(
     }
 
     fun resetAppIconToDefault(): Boolean {
-        return applyAppIcon(AppIconOption.QUADRANT)
-    }
-
-    fun importCustomIconFromUri(uri: Uri, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val saved = customIconManager.importIconFromGalleryUri(uri)
-            saved.onSuccess { path ->
-                settingsRepository.updateSettings { it.copy(customIconImagePath = path) }
-                onResult(true)
-            }.onFailure {
-                onResult(false)
-            }
-        }
-    }
-
-    fun pinCustomGalleryIconToHome(onResult: (PinShortcutOutcome) -> Unit) {
-        viewModelScope.launch {
-            val outcome = customIconManager.pinGalleryShortcutToHome(settings.value.customIconImagePath)
-            onResult(outcome)
-        }
-    }
-
-    fun clearCustomGalleryIcon() {
-        viewModelScope.launch {
-            customIconManager.clearCustomIcon()
-            settingsRepository.updateSettings { it.copy(customIconImagePath = null) }
-        }
+        return applyAppIcon(AppIconOption.CSK)
     }
 
     suspend fun exportHistoryCsv(): String = historyRepository.exportCsv()
@@ -255,8 +226,7 @@ class SettingsViewModel(
             viewModelScope.launch {
                 settingsRepository.updateSettings { current ->
                     imported.copy(
-                        backgroundImagePath = current.backgroundImagePath,
-                        customIconImagePath = current.customIconImagePath
+                        backgroundImagePath = current.backgroundImagePath
                     )
                 }
                 launcherIconManager.applyLauncherIcon(imported.selectedIcon)
@@ -267,9 +237,8 @@ class SettingsViewModel(
     fun resetAllSettings() {
         viewModelScope.launch {
             backgroundImageManager.clearBackgroundImage()
-            customIconManager.clearCustomIcon()
             settingsRepository.resetAllSettings()
-            launcherIconManager.applyLauncherIcon(AppIconOption.QUADRANT)
+            launcherIconManager.applyLauncherIcon(AppIconOption.CSK)
         }
     }
 
@@ -278,8 +247,7 @@ class SettingsViewModel(
         private val historyRepository: HistoryRepository,
         private val hapticManager: HapticManager,
         private val launcherIconManager: LauncherIconManager,
-        private val backgroundImageManager: BackgroundImageManager,
-        private val customIconManager: CustomIconManager
+        private val backgroundImageManager: BackgroundImageManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -288,8 +256,7 @@ class SettingsViewModel(
                 historyRepository,
                 hapticManager,
                 launcherIconManager,
-                backgroundImageManager,
-                customIconManager
+                backgroundImageManager
             ) as T
         }
     }

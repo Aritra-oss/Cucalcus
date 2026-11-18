@@ -8,7 +8,6 @@ import com.example.data.remote.CurrencyApiService
 import com.example.data.repository.CurrencyRepository
 import com.example.data.repository.HistoryRepository
 import com.example.platform.BackgroundImageManager
-import com.example.platform.CustomIconManager
 import com.example.platform.HapticManager
 import com.example.platform.LauncherIconManager
 import com.squareup.moshi.Moshi
@@ -33,8 +32,6 @@ class CucalcusApp : Application() {
     lateinit var launcherIconManager: LauncherIconManager
         private set
     lateinit var backgroundImageManager: BackgroundImageManager
-        private set
-    lateinit var customIconManager: CustomIconManager
         private set
 
     override fun onCreate() {
@@ -73,6 +70,5 @@ class CucalcusApp : Application() {
         hapticManager = HapticManager(applicationContext)
         launcherIconManager = LauncherIconManager(applicationContext)
         backgroundImageManager = BackgroundImageManager(applicationContext)
-        customIconManager = CustomIconManager(applicationContext)
     }
 }

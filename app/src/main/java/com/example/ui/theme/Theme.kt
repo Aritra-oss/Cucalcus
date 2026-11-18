@@ -118,67 +118,28 @@ fun CucalcusTheme(
     }
 
     val targetAccent = Color(settings.activeAccentArgb)
-    val basePalette = when {
-        hasActiveBgImage -> {
-            // Ensure translucent dark Swiss cards & legible light text over dimmed gallery wallpaper
-            val baseDark = if (settings.themeMode.isDark) {
-                surfacePaletteForTheme(settings.themeMode)
-            } else {
-                deriveSurfacePalette(Color(0xFF0E0E10L), true)
-            }
-            baseDark.copy(
-                secondaryBg = baseDark.secondaryBg.copy(alpha = 0.78f),
-                cardBg = baseDark.cardBg.copy(alpha = 0.78f),
-                elevatedSurface = baseDark.elevatedSurface.copy(alpha = 0.84f),
-                border = Color.White.copy(alpha = 0.16f),
-                primaryText = CucalcusPalette.PrimaryText,
-                secondaryText = Color(0xFFCAC8C2),
-                isDark = true
-            )
-        }
-        settings.backgroundPreset != AppBackgroundPreset.THEME_DEFAULT -> {
-            val bgColor = Color(settings.backgroundPreset.argbHex)
-            deriveSurfacePalette(bgColor, settings.backgroundPreset.isDark)
-        }
-        else -> surfacePaletteForTheme(settings.themeMode)
+    val themePalette = surfacePaletteForTheme(settings.themeMode)
+
+    val mainBgColor = when {
+        hasActiveBgImage -> themePalette.mainBg.copy(alpha = 0.85f)
+        settings.backgroundPreset != AppBackgroundPreset.THEME_DEFAULT -> Color(settings.backgroundPreset.argbHex)
+        else -> themePalette.mainBg
     }
 
-    val targetColors = CucalcusColors(
-        mainBg = basePalette.mainBg,
-        secondaryBg = basePalette.secondaryBg,
-        cardBg = basePalette.cardBg,
-        elevatedSurface = basePalette.elevatedSurface,
-        primaryText = basePalette.primaryText,
-        secondaryText = basePalette.secondaryText,
+    val animatedColors = CucalcusColors(
+        mainBg = mainBgColor,
+        secondaryBg = themePalette.secondaryBg,
+        cardBg = themePalette.cardBg,
+        elevatedSurface = themePalette.elevatedSurface,
+        primaryText = themePalette.primaryText,
+        secondaryText = themePalette.secondaryText,
         accent = targetAccent,
         onAccent = contrastOnColor(targetAccent),
-        border = basePalette.border,
+        border = themePalette.border,
         error = CucalcusPalette.ErrorRed,
         success = CucalcusPalette.SuccessGreen,
-        isDark = basePalette.isDark,
+        isDark = themePalette.isDark,
         hasBackgroundImage = hasActiveBgImage
-    )
-
-    val animMainBg by animateColorAsState(targetColors.mainBg, tween(animDuration), label = "mainBg")
-    val animSecondaryBg by animateColorAsState(targetColors.secondaryBg, tween(animDuration), label = "secBg")
-    val animCardBg by animateColorAsState(targetColors.cardBg, tween(animDuration), label = "cardBg")
-    val animElevated by animateColorAsState(targetColors.elevatedSurface, tween(animDuration), label = "elev")
-    val animPrimaryText by animateColorAsState(targetColors.primaryText, tween(animDuration), label = "primText")
-    val animSecondaryText by animateColorAsState(targetColors.secondaryText, tween(animDuration), label = "secText")
-    val animAccent by animateColorAsState(targetColors.accent, tween(animDuration), label = "accent")
-    val animOnAccent by animateColorAsState(targetColors.onAccent, tween(animDuration), label = "onAccent")
-    val animBorder by animateColorAsState(targetColors.border, tween(animDuration), label = "border")
-
-    val animatedColors = targetColors.copy(
-        mainBg = animMainBg,
-        secondaryBg = animSecondaryBg,
-        cardBg = animCardBg,
-        elevatedSurface = animElevated,
-        primaryText = animPrimaryText,
-        secondaryText = animSecondaryText,
-        accent = animAccent,
-        onAccent = animOnAccent,
-        border = animBorder
     )
 
     val m3Scheme = if (animatedColors.isDark) {
