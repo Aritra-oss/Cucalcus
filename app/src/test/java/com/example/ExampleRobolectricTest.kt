@@ -87,4 +87,28 @@ class ExampleRobolectricTest {
         val activity = controller.get()
         assertTrue(!activity.isFinishing)
     }
+
+    @Test
+    fun `all 15 app icon options match manifest aliases and default is normal green`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val pm = context.packageManager
+        val pkg = context.packageName
+
+        assertEquals(AppIconOption.NORMAL_GREEN, CucalcusSettings().selectedIcon)
+        assertEquals(15, AppIconOption.entries.map { it.id }.toSet().size)
+        assertEquals(15, AppIconOption.entries.map { it.aliasClassName }.toSet().size)
+
+        for (option in AppIconOption.entries) {
+            val component = android.content.ComponentName(pkg, option.aliasClassName)
+            val info = pm.getActivityInfo(
+                component,
+                android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+            )
+            assertTrue("Missing alias ${option.aliasClassName}", info.name == option.aliasClassName)
+            val drawableId = context.resources.getIdentifier("ic_brand_${option.id}", "drawable", pkg)
+            assertTrue("Missing ic_brand_${option.id}", drawableId != 0)
+            val adaptiveId = context.resources.getIdentifier("ic_adaptive_${option.id}", "drawable", pkg)
+            assertTrue("Missing ic_adaptive_${option.id}", adaptiveId != 0)
+        }
+    }
 }

@@ -1,6 +1,11 @@
 package com.example.ui.tools
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -29,8 +34,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -42,7 +51,9 @@ import com.example.domain.tools.ToolCategory
 import com.example.domain.tools.ToolId
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.components.SwissSectionHeader
+import com.example.ui.components.ToolsBodySkeleton
 import com.example.ui.theme.CucalcusTheme
+import kotlinx.coroutines.delay
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel) {
@@ -83,6 +94,12 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
             }
         }
     } else {
+        var isDirectoryReady by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(160)
+            isDirectoryReady = true
+        }
+
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -91,13 +108,22 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
                 tag = "23 Precision Utilities"
             )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            AnimatedContent(
+                targetState = isDirectoryReady,
+                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+                label = "tools_skeleton_transition",
+                modifier = Modifier.weight(1f)
+            ) { ready ->
+                if (!ready) {
+                    ToolsBodySkeleton()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                 if (recentTools.isNotEmpty()) {
                     SwissSectionHeader(
                         title = "Quick Tools",
@@ -147,6 +173,8 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
             }
         }
     }
+}
+}
 }
 
 @Composable

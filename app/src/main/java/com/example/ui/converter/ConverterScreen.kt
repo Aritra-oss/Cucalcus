@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -55,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -79,10 +81,12 @@ import com.example.domain.converter.UnitCategory
 import com.example.domain.converter.UnitConverterEngine
 import com.example.domain.math.NumberFormatMode
 import com.example.domain.math.NumberFormatter
+import com.example.ui.components.ConverterBodySkeleton
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.components.SwissSectionHeader
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -94,6 +98,12 @@ fun ConverterScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
+    var isContentReady by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(160)
+        isContentReady = true
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -184,18 +194,30 @@ fun ConverterScreen(
             }
         }
 
-        if (state.activeTab == ConverterTab.UNITS) {
-            UnitConverterContent(
-                state = state,
-                viewModel = viewModel,
-                onShowMessage = onShowMessage
-            )
-        } else {
-            CurrencyConverterContent(
-                state = state,
-                viewModel = viewModel,
-                onShowMessage = onShowMessage
-            )
+        val showSkeleton = !isContentReady ||
+            (state.activeTab == ConverterTab.CURRENCY && state.isLoadingRates && state.ratesSnapshot == null)
+
+        AnimatedContent(
+            targetState = Pair(showSkeleton, state.activeTab),
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "converter_skeleton_transition",
+            modifier = Modifier.weight(1f)
+        ) { (skeleton, tab) ->
+            if (skeleton) {
+                ConverterBodySkeleton()
+            } else if (tab == ConverterTab.UNITS) {
+                UnitConverterContent(
+                    state = state,
+                    viewModel = viewModel,
+                    onShowMessage = onShowMessage
+                )
+            } else {
+                CurrencyConverterContent(
+                    state = state,
+                    viewModel = viewModel,
+                    onShowMessage = onShowMessage
+                )
+            }
         }
     }
 }

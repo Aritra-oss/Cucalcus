@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val reducedMotion = CucalcusTheme.reducedMotion
-                val animMs = if (reducedMotion) 0 else 180
+                val animMs = if (reducedMotion) 0 else 120
 
                 BoxWithConstraints(
                     modifier = Modifier

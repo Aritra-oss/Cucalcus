@@ -1,6 +1,11 @@
 package com.example.ui.history
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -62,9 +68,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.CalculationHistoryEntity
+import com.example.ui.components.HistoryBodySkeleton
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -84,6 +92,12 @@ fun HistoryScreen(
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
+    var isContentReady by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(150)
+        isContentReady = true
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -154,8 +168,18 @@ fun HistoryScreen(
             }
         }
 
-        // Search & Filter Controls
-        Column(
+        AnimatedContent(
+            targetState = isContentReady,
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "history_skeleton_transition",
+            modifier = Modifier.weight(1f)
+        ) { ready ->
+            if (!ready) {
+                HistoryBodySkeleton()
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Search & Filter Controls
+                    Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -308,10 +332,13 @@ fun HistoryScreen(
                             onToggleFavorite = { viewModel.toggleFavorite(item) },
                             onDelete = { viewModel.deleteEntry(item.id) }
                         )
+                        }
                     }
                 }
             }
         }
+    }
+}
     }
 
     if (showClearConfirm) {
