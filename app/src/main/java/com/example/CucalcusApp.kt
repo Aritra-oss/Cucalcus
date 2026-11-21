@@ -6,7 +6,9 @@ import com.example.data.local.CucalcusDatabase
 import com.example.data.preferences.SettingsRepository
 import com.example.data.remote.CurrencyApiService
 import com.example.data.repository.CurrencyRepository
+import com.example.data.repository.FirebaseProblemScannerRepository
 import com.example.data.repository.HistoryRepository
+import com.example.data.repository.ProblemScannerRepository
 import com.example.platform.BackgroundImageManager
 import com.example.platform.HapticManager
 import com.example.platform.LauncherIconManager
@@ -33,6 +35,10 @@ class CucalcusApp : Application() {
         private set
     lateinit var backgroundImageManager: BackgroundImageManager
         private set
+
+    val problemScannerRepository: ProblemScannerRepository by lazy {
+        FirebaseProblemScannerRepository()
+    }
 
     override fun onCreate() {
         super.onCreate()

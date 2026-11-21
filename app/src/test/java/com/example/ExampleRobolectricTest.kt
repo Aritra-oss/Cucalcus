@@ -86,6 +86,12 @@ class ExampleRobolectricTest {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
         assertTrue(!activity.isFinishing)
+
+        val tv = android.util.TypedValue()
+        assertTrue(activity.theme.resolveAttribute(android.R.attr.windowSplashScreenAnimatedIcon, tv, true))
+        assertEquals(R.drawable.splash_no_icon, tv.resourceId)
+        assertTrue(activity.theme.resolveAttribute(android.R.attr.windowSplashScreenBackground, tv, true))
+        assertEquals(android.graphics.Color.BLACK, activity.getColor(tv.resourceId))
     }
 
     @Test
@@ -215,5 +221,209 @@ class ExampleRobolectricTest {
             val roundTrip = transformed.offsetMapping.transformedToOriginal(transIdx)
             assertEquals(i, roundTrip)
         }
+    }
+
+    @Test
+    fun `calculator viewmodel streams and displays scanned problem solution then clears cleanly`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = com.example.data.preferences.SettingsRepository(context)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(
+            context,
+            com.example.data.local.CucalcusDatabase::class.java
+        ).allowMainThreadQueries().build()
+        val historyRepo = com.example.data.repository.HistoryRepository(db.historyDao())
+        val haptics = com.example.platform.HapticManager(context)
+        val fakeScanner = object : com.example.data.repository.ProblemScannerRepository {
+            override fun solveProblemFromBitmapStream(
+                bitmap: android.graphics.Bitmap
+            ) = kotlinx.coroutines.flow.flow {
+                emit(com.example.data.repository.ScanProblemStreamEvent.Loading)
+                emit(com.example.data.repository.ScanProblemStreamEvent.Streaming("Problem: 12 × 8\n"))
+                emit(
+                    com.example.data.repository.ScanProblemStreamEvent.Completed(
+                        fullText = "Problem: 12 × 8\nStep 1: 12 × 8 = 96\nFinal Answer: 96",
+                        finalAnswer = "96"
+                    )
+                )
+            }
+
+            override fun solveProblemFromTextStream(
+                problemText: String
+            ) = kotlinx.coroutines.flow.flow {
+                emit(com.example.data.repository.ScanProblemStreamEvent.Loading)
+                if (problemText.contains("gossip", ignoreCase = true)) {
+                    emit(
+                        com.example.data.repository.ScanProblemStreamEvent.Completed(
+                            fullText = com.example.data.repository.FirebaseProblemScannerRepository.NOT_EDUCATIONAL_RESPONSE,
+                            finalAnswer = null
+                        )
+                    )
+                } else {
+                    emit(
+                        com.example.data.repository.ScanProblemStreamEvent.Completed(
+                            fullText = "Problem: 2x + 4 = 10\n2x = 6\nFinal Answer: 3",
+                            finalAnswer = "3"
+                        )
+                    )
+                }
+            }
+        }
+        val vm = com.example.ui.calculator.CalculatorViewModel(repo, historyRepo, haptics, fakeScanner)
+        val bmp = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+
+        vm.solveScannedBitmap(bmp)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val solvedState = vm.uiState.value
+        assertTrue(!solvedState.isScanningProblem)
+        assertEquals("96", solvedState.scannedFinalAnswer)
+        assertTrue(solvedState.scannedAnswerText!!.contains("12 × 8 = 96"))
+
+        // Pressing AC clears the scanned answer back to normal calculator display
+        vm.onClear()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val cleared = vm.uiState.value
+        assertEquals(null, cleared.scannedAnswerText)
+        assertEquals(null, cleared.scannedFinalAnswer)
+
+        // Solving a typed math problem streams and shows Final Answer
+        vm.solveTypedProblem("2x + 4 = 10")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val typedMathState = vm.uiState.value
+        assertTrue(!typedMathState.isScanningProblem)
+        assertEquals("3", typedMathState.scannedFinalAnswer)
+        assertTrue(typedMathState.scannedAnswerText!!.contains("Final Answer: 3"))
+
+        // Non-educational prompt returns exact rejection message with no final answer
+        vm.solveTypedProblem("Tell me celebrity gossip")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val rejectedState = vm.uiState.value
+        assertTrue(!rejectedState.isScanningProblem)
+        assertEquals("This is not an educational question.", rejectedState.scannedAnswerText)
+        assertEquals(null, rejectedState.scannedFinalAnswer)
+
+        val parsed = com.example.data.repository.FirebaseProblemScannerRepository.extractFinalAnswer(
+            "Problem: 2x = 10\nx = 5\nFinal Answer: 5"
+        )
+        assertEquals("5", parsed)
+
+        val normalizedRejection = com.example.data.repository.FirebaseProblemScannerRepository.normalizeMathResponse(
+            "This is not an educational question"
+        )
+        assertEquals("This is not an educational question.", normalizedRejection.first)
+        assertEquals(null, normalizedRejection.second)
+        db.close()
+    }
+
+    @Test
+    fun `grab copies only answer flips to put and pastes back into display box`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = com.example.data.preferences.SettingsRepository(context)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(
+            context,
+            com.example.data.local.CucalcusDatabase::class.java
+        ).allowMainThreadQueries().build()
+        val historyRepo = com.example.data.repository.HistoryRepository(db.historyDao())
+        val haptics = com.example.platform.HapticManager(context)
+        val vm = com.example.ui.calculator.CalculatorViewModel(repo, historyRepo, haptics)
+
+        // Empty display returns null and stays in GRAB state
+        assertEquals(null, vm.grabAnswer())
+        assertEquals(null, vm.uiState.value.grabbedAnswer)
+
+        // Evaluate 25 + 17 = 42, GRAB copies only "42"
+        listOf("2", "5").forEach { vm.onDigit(it) }
+        vm.onOperator("+")
+        listOf("1", "7").forEach { vm.onDigit(it) }
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val grabbed = vm.grabAnswer()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("42", grabbed)
+        assertEquals("42", vm.uiState.value.grabbedAnswer)
+
+        // Clear and type "10+" then PUT -> expression becomes "10+42" and button resets to GRAB
+        vm.onClear()
+        vm.onDigit("1")
+        vm.onDigit("0")
+        vm.onOperator("+")
+        vm.putGrabbedAnswer()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        assertEquals("10+42", vm.uiState.value.expression)
+        assertEquals("52", vm.uiState.value.livePreview)
+        assertEquals(null, vm.uiState.value.grabbedAnswer)
+        db.close()
+    }
+
+    @Test
+    fun `voice classifier and viewmodel route arithmetic locally and educational queries to ai mode`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = com.example.data.preferences.SettingsRepository(context)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(
+            context,
+            com.example.data.local.CucalcusDatabase::class.java
+        ).allowMainThreadQueries().build()
+        val historyRepo = com.example.data.repository.HistoryRepository(db.historyDao())
+        val haptics = com.example.platform.HapticManager(context)
+
+        var lastAiPrompt: String? = null
+        val fakeScanner = object : com.example.data.repository.ProblemScannerRepository {
+            override fun solveProblemFromBitmapStream(bitmap: android.graphics.Bitmap) =
+                kotlinx.coroutines.flow.emptyFlow<com.example.data.repository.ScanProblemStreamEvent>()
+
+            override fun solveProblemFromTextStream(problemText: String) = kotlinx.coroutines.flow.flow {
+                lastAiPrompt = problemText
+                emit(com.example.data.repository.ScanProblemStreamEvent.Loading)
+                emit(
+                    com.example.data.repository.ScanProblemStreamEvent.Completed(
+                        fullText = "sin(60°) = √3 / 2 ≈ 0.866\nFinal Answer: 0.866",
+                        finalAnswer = "0.866"
+                    )
+                )
+            }
+        }
+        val vm = com.example.ui.calculator.CalculatorViewModel(repo, historyRepo, haptics, fakeScanner)
+
+        // Plain spoken/transcribed arithmetic runs locally without hitting AI Mode
+        val r1 = com.example.domain.math.VoiceMathClassifier.classify("36+67-66×67(77×4%)")
+        assertTrue(r1 is com.example.domain.math.VoiceQueryRoute.NormalCalculation)
+
+        val r2 = com.example.domain.math.VoiceMathClassifier.classify("Square root of 144")
+        assertTrue(r2 is com.example.domain.math.VoiceQueryRoute.NormalCalculation)
+
+        val r3 = com.example.domain.math.VoiceMathClassifier.classify("25 percent of 800")
+        assertTrue(r3 is com.example.domain.math.VoiceQueryRoute.NormalCalculation)
+
+        val r4 = com.example.domain.math.VoiceMathClassifier.classify("66 x 67")
+        assertTrue(r4 is com.example.domain.math.VoiceQueryRoute.NormalCalculation)
+
+        val r5 = com.example.domain.math.VoiceMathClassifier.classify("Square root of 144.")
+        assertTrue(r5 is com.example.domain.math.VoiceQueryRoute.NormalCalculation)
+
+        vm.processVoiceInput("Square root of 144.")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("12", vm.uiState.value.expression)
+        assertEquals(null, lastAiPrompt)
+
+        // Tough / conceptual / scientific questions route to AI Mode automatically
+        assertTrue(
+            com.example.domain.math.VoiceMathClassifier.classify("What is the value of sin 60 degrees?")
+                is com.example.domain.math.VoiceQueryRoute.AiModeQuery
+        )
+        assertTrue(
+            com.example.domain.math.VoiceMathClassifier.classify("Explain Newton's second law")
+                is com.example.domain.math.VoiceQueryRoute.AiModeQuery
+        )
+        assertTrue(
+            com.example.domain.math.VoiceMathClassifier.classify("Explain photosynthesis")
+                is com.example.domain.math.VoiceQueryRoute.AiModeQuery
+        )
+
+        vm.processVoiceInput("What is the value of sin 60 degrees?")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("What is the value of sin 60 degrees?", lastAiPrompt)
+        assertEquals("0.866", vm.uiState.value.scannedFinalAnswer)
+        db.close()
     }
 }

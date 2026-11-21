@@ -3,7 +3,7 @@
     <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_window_background</item>
         <item name="android:windowSplashScreenBackground">@color/cucalcus_splash_bg</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_adaptive_normal_green</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_no_icon</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/cucalcus_splash_bg</item>
     </style>
 </resources>

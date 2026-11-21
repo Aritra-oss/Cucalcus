@@ -128,6 +128,14 @@ fun SwissScreenTopBar(
         }
         Spacer(modifier = Modifier.height(12.dp))
         HorizontalDivider(thickness = 1.dp, color = colors.border)
+        if (showNavigationMenu) {
+            val navActions = LocalCucalcusNavActions.current
+            InlineCucalcusMenuCard(
+                visible = navActions.isMenuExpanded,
+                navActions = navActions,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
     }
 }
 

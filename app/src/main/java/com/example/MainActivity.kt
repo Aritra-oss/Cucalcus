@@ -3,11 +3,16 @@ package com.example
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,8 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -41,13 +46,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.data.preferences.AppBackgroundPreset
+import com.example.data.repository.createScanCaptureFile
+import com.example.data.repository.loadScanBitmapFromUri
+import com.example.platform.configureAppCheck
 import com.example.ui.calculator.CalculatorScreen
 import com.example.ui.calculator.CalculatorViewModel
 import com.example.ui.components.CucalcusNavActions
 import com.example.ui.components.CucalcusRoute
 import com.example.ui.components.LaunchSplashOverlay
 import com.example.ui.components.LocalCucalcusNavActions
+import com.example.ui.components.ScanProblemDialog
 import com.example.ui.converter.ConverterScreen
 import com.example.ui.converter.ConverterViewModel
 import com.example.ui.history.HistoryScreen
@@ -55,7 +63,6 @@ import com.example.ui.history.HistoryViewModel
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.settings.SettingsViewModel
 import com.example.ui.theme.CucalcusTheme
-import com.example.ui.theme.surfacePaletteForTheme
 import com.example.ui.tools.ToolsScreen
 import com.example.ui.tools.ToolsViewModel
 import kotlinx.coroutines.delay
@@ -65,31 +72,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // STEP 1: Configure Firebase App Check before UI, ViewModels, or Firebase operations.
+        configureAppCheck(this, intent)
+
         val app = application as CucalcusApp
         val initialSettings = app.settingsRepository.currentSettings
-        val initialPalette = surfacePaletteForTheme(initialSettings.themeMode)
-        val initialIsLight = !initialPalette.isDark
-        val initialBgArgb = if (
-            initialSettings.backgroundPreset != AppBackgroundPreset.THEME_DEFAULT &&
-            initialSettings.backgroundImagePath.isNullOrBlank()
-        ) {
-            Color(initialSettings.backgroundPreset.argbHex).toArgb()
-        } else {
-            initialPalette.mainBg.toArgb()
-        }
-        window.setBackgroundDrawable(ColorDrawable(initialBgArgb))
+
+        // Match pure black splash screen on frame 0 before Compose attaches.
+        window.setBackgroundDrawable(ColorDrawable(AndroidColor.BLACK))
 
         enableEdgeToEdge(
-            statusBarStyle = if (initialIsLight) {
-                SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
-            } else {
-                SystemBarStyle.dark(AndroidColor.TRANSPARENT)
-            },
-            navigationBarStyle = if (initialIsLight) {
-                SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
-            } else {
-                SystemBarStyle.dark(AndroidColor.TRANSPARENT)
-            }
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT)
         )
 
         setContent {
@@ -108,30 +102,31 @@ class MainActivity : ComponentActivity() {
             CucalcusTheme(settings = settings) {
                 val colors = CucalcusTheme.colors
                 val isLight = !colors.isDark
-                LaunchedEffect(isLight) {
+                val reducedMotion = CucalcusTheme.reducedMotion
+                var minSplashElapsed by remember { mutableStateOf(reducedMotion) }
+                LaunchedEffect(reducedMotion) {
+                    if (!reducedMotion) {
+                        delay(640)
+                    }
+                    minSplashElapsed = true
+                }
+                val showLaunchSplash = !minSplashElapsed || !isBgReady
+
+                LaunchedEffect(isLight, showLaunchSplash) {
+                    val useLightBars = !showLaunchSplash && isLight
                     enableEdgeToEdge(
-                        statusBarStyle = if (isLight) {
+                        statusBarStyle = if (useLightBars) {
                             SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
                         } else {
                             SystemBarStyle.dark(AndroidColor.TRANSPARENT)
                         },
-                        navigationBarStyle = if (isLight) {
+                        navigationBarStyle = if (useLightBars) {
                             SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
                         } else {
                             SystemBarStyle.dark(AndroidColor.TRANSPARENT)
                         }
                     )
                 }
-
-                val reducedMotion = CucalcusTheme.reducedMotion
-                var minSplashElapsed by remember { mutableStateOf(reducedMotion) }
-                LaunchedEffect(reducedMotion) {
-                    if (!reducedMotion) {
-                        delay(360)
-                    }
-                    minSplashElapsed = true
-                }
-                val showLaunchSplash = !minSplashElapsed || !isBgReady
 
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
@@ -152,7 +147,8 @@ class MainActivity : ComponentActivity() {
                     factory = CalculatorViewModel.Factory(
                         app.settingsRepository,
                         app.historyRepository,
-                        app.hapticManager
+                        app.hapticManager,
+                        app.problemScannerRepository
                     )
                 )
                 val historyVm: HistoryViewModel = viewModel(
@@ -177,8 +173,17 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
+                var isMenuExpanded by remember { mutableStateOf(false) }
+                var showScanDialog by remember { mutableStateOf(false) }
+                var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+                BackHandler(enabled = isMenuExpanded) {
+                    isMenuExpanded = false
+                }
+
                 val navigateTo: (CucalcusRoute) -> Unit = remember(navController) {
                     { target ->
+                        isMenuExpanded = false
                         navController.navigate(target.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
@@ -189,10 +194,58 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val handleScanUri: (Uri) -> Unit = remember(navController, calculatorVm, scope) {
+                    { uri ->
+                        isMenuExpanded = false
+                        navigateTo(CucalcusRoute.CALCULATOR)
+                        scope.launch {
+                            val bmp = loadScanBitmapFromUri(this@MainActivity, uri)
+                            if (bmp != null) {
+                                calculatorVm.solveScannedBitmap(bmp)
+                            } else {
+                                calculatorVm.setScanError("Could not decode the selected image. Please try another photo.")
+                            }
+                        }
+                    }
+                }
+
+                val galleryScanLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.PickVisualMedia()
+                ) { uri ->
+                    if (uri != null) {
+                        handleScanUri(uri)
+                    }
+                }
+
+                val cameraScanLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.TakePicture()
+                ) { success ->
+                    val uri = pendingCameraUri
+                    pendingCameraUri = null
+                    if (success && uri != null) {
+                        handleScanUri(uri)
+                    }
+                }
+
                 val animMs = if (reducedMotion) 0 else 120
 
-                val navActions = remember(currentRoute, navigateTo) {
-                    CucalcusNavActions(currentRoute = currentRoute, onNavigate = navigateTo)
+                val navActions = remember(currentRoute, isMenuExpanded, navigateTo) {
+                    CucalcusNavActions(
+                        currentRoute = currentRoute,
+                        isMenuExpanded = isMenuExpanded,
+                        onToggleMenu = { isMenuExpanded = !isMenuExpanded },
+                        onCloseMenu = { isMenuExpanded = false },
+                        onNavigate = navigateTo,
+                        onScanProblem = {
+                            isMenuExpanded = false
+                            showScanDialog = true
+                        },
+                        onSubmitTypedProblem = { problemText ->
+                            isMenuExpanded = false
+                            navigateTo(CucalcusRoute.CALCULATOR)
+                            calculatorVm.solveTypedProblem(problemText)
+                        }
+                    )
                 }
 
                 CompositionLocalProvider(LocalCucalcusNavActions provides navActions) {
@@ -209,7 +262,6 @@ class MainActivity : ComponentActivity() {
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
-                            // Slight dim scrim keeping gallery picture visible while preserving crisp contrast
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -269,6 +321,34 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                        }
+
+                        if (showScanDialog) {
+                            ScanProblemDialog(
+                                onDismiss = { showScanDialog = false },
+                                onTakePhoto = {
+                                    showScanDialog = false
+                                    runCatching {
+                                        val captureFile = createScanCaptureFile(this@MainActivity)
+                                        val uri = FileProvider.getUriForFile(
+                                            this@MainActivity,
+                                            "${BuildConfig.APPLICATION_ID}.fileprovider",
+                                            captureFile
+                                        )
+                                        pendingCameraUri = uri
+                                        cameraScanLauncher.launch(uri)
+                                    }.onFailure {
+                                        pendingCameraUri = null
+                                        showMessage("No camera app available — try Choose from Gallery")
+                                    }
+                                },
+                                onPickFromGallery = {
+                                    showScanDialog = false
+                                    galleryScanLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                            )
                         }
 
                         LaunchSplashOverlay(visible = showLaunchSplash)

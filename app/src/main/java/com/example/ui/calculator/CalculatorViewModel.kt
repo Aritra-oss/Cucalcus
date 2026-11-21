@@ -1,22 +1,28 @@
 package com.example.ui.calculator
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.preferences.CucalcusSettings
 import com.example.data.preferences.SettingsRepository
+import com.example.data.repository.FirebaseProblemScannerRepository
 import com.example.data.repository.HistoryRepository
+import com.example.data.repository.ProblemScannerRepository
+import com.example.data.repository.ScanProblemStreamEvent
 import com.example.domain.math.AngleMode
 import com.example.domain.math.EvalResult
 import com.example.domain.math.ExpressionParser
 import com.example.domain.math.NumberFormatMode
 import com.example.domain.math.NumberFormatter
+import com.example.domain.math.VoiceMathClassifier
+import com.example.domain.math.VoiceQueryRoute
 import com.example.platform.HapticManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,15 +39,22 @@ data class CalculatorUiState(
     val isInverseSci: Boolean = false,
     val angleMode: AngleMode = AngleMode.DEG,
     val memoryValue: Double = 0.0,
-    val clipboardCandidate: String? = null
+    val clipboardCandidate: String? = null,
+    val isScanningProblem: Boolean = false,
+    val scannedAnswerText: String? = null,
+    val scannedFinalAnswer: String? = null,
+    val scanErrorMessage: String? = null,
+    val grabbedAnswer: String? = null
 )
 
 class CalculatorViewModel(
     private val settingsRepository: SettingsRepository,
     private val historyRepository: HistoryRepository,
-    private val hapticManager: HapticManager
+    private val hapticManager: HapticManager,
+    private val problemScannerRepository: ProblemScannerRepository = FirebaseProblemScannerRepository()
 ) : ViewModel() {
 
+    private var scanJob: Job? = null
     private val initialSettings = settingsRepository.currentSettings
     private val _state = MutableStateFlow(
         CalculatorUiState(
@@ -107,7 +120,9 @@ class CalculatorViewModel(
 
     fun onDigit(digit: String) {
         triggerHaptic()
-        _state.update { current ->
+        scanJob?.cancel()
+        _state.update { rawCurrent ->
+            val current = rawCurrent.withoutScanOverlay()
             val freshStart = current.justEvaluated
             val base = if (freshStart) "" else current.expression
             val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, base.length)
@@ -473,13 +488,18 @@ class CalculatorViewModel(
 
     fun onClear() {
         triggerHaptic()
+        scanJob?.cancel()
         _state.update {
             it.copy(
                 expression = "",
                 cursorPosition = 0,
                 livePreview = "",
                 errorMessage = null,
-                justEvaluated = false
+                justEvaluated = false,
+                isScanningProblem = false,
+                scannedAnswerText = null,
+                scannedFinalAnswer = null,
+                scanErrorMessage = null
             )
         }
     }
@@ -653,11 +673,196 @@ class CalculatorViewModel(
         _state.update { it.copy(clipboardCandidate = null) }
     }
 
-    private fun recalculate(state: CalculatorUiState): CalculatorUiState {
-        if (state.expression.isBlank()) {
-            return state.copy(livePreview = "")
+    fun grabAnswer(): String? {
+        triggerHaptic()
+        val current = _state.value
+        val answer = when {
+            !current.scannedFinalAnswer.isNullOrBlank() ->
+                current.scannedFinalAnswer.trim().removePrefix("=").trim()
+            current.livePreview.isNotBlank() ->
+                current.livePreview.trim()
+            current.justEvaluated && current.expression.isNotBlank() ->
+                current.formattedExpression.ifBlank { current.expression }.trim()
+            current.expression.isNotBlank() -> {
+                val res = ExpressionParser.evaluate(current.expression, current.angleMode)
+                if (res is EvalResult.Success) {
+                    NumberFormatter.formatResult(
+                        value = res.value,
+                        decimalPrecision = latestSettings.decimalPrecision,
+                        formatMode = latestSettings.numberFormatMode
+                    )
+                } else {
+                    null
+                }
+            }
+            else -> null
+        } ?: return null
+
+        _state.update { it.copy(grabbedAnswer = answer) }
+        return answer
+    }
+
+    fun putGrabbedAnswer() {
+        triggerHaptic()
+        _state.update { rawCurrent ->
+            val rawGrabbed = rawCurrent.grabbedAnswer ?: return@update rawCurrent
+            val pasteToken = rawGrabbed.replace(",", "").replace("-", "−").trim()
+            val clean = rawCurrent.withoutScanOverlay()
+            val base = if (clean.justEvaluated) "" else clean.expression
+            val pos = if (clean.justEvaluated) 0 else clean.cursorPosition.coerceIn(0, base.length)
+            val (nextExpr, nextCursor) = insertAtCursor(base, pos, pasteToken)
+            recalculate(
+                clean.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null,
+                    grabbedAnswer = null
+                )
+            )
         }
-        val preview = ExpressionParser.evaluateLivePreview(state.expression, state.angleMode)
+    }
+
+    fun processVoiceInput(spokenText: String) {
+        triggerHaptic()
+        val currentAngle = _state.value.angleMode
+        when (val route = VoiceMathClassifier.classify(spokenText, currentAngle)) {
+            is VoiceQueryRoute.NormalCalculation -> {
+                val balanced = route.normalizedExpression
+                val eval = ExpressionParser.evaluate(balanced, currentAngle)
+                if (eval is EvalResult.Success) {
+                    val formatted = NumberFormatter.formatResult(
+                        value = eval.value,
+                        decimalPrecision = latestSettings.decimalPrecision,
+                        formatMode = latestSettings.numberFormatMode
+                    )
+                    viewModelScope.launch {
+                        historyRepository.saveCalculation(
+                            expression = NumberFormatter.formatExpressionNumbers(balanced, NumberFormatMode.INTERNATIONAL),
+                            formattedResult = formatted,
+                            rawResult = eval.value,
+                            angleMode = currentAngle.name
+                        )
+                    }
+                    val editable = NumberFormatter.toEditableExpressionNumber(
+                        value = eval.value,
+                        decimalPrecision = latestSettings.decimalPrecision
+                    )
+                    scanJob?.cancel()
+                    _state.update {
+                        it.withoutScanOverlay().copy(
+                            expression = editable,
+                            cursorPosition = editable.length,
+                            livePreview = "",
+                            errorMessage = null,
+                            justEvaluated = true
+                        )
+                    }
+                } else {
+                    solveTypedProblem(spokenText)
+                }
+            }
+            is VoiceQueryRoute.AiModeQuery -> {
+                solveTypedProblem(route.spokenPrompt)
+            }
+        }
+    }
+
+    fun solveScannedBitmap(bitmap: Bitmap) {
+        collectAiStream(problemScannerRepository.solveProblemFromBitmapStream(bitmap))
+    }
+
+    fun solveTypedProblem(problemText: String) {
+        collectAiStream(problemScannerRepository.solveProblemFromTextStream(problemText))
+    }
+
+    private fun collectAiStream(flow: kotlinx.coroutines.flow.Flow<ScanProblemStreamEvent>) {
+        triggerHaptic()
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            flow.collect { event ->
+                when (event) {
+                    is ScanProblemStreamEvent.Loading -> {
+                        _state.update {
+                            it.copy(
+                                isScanningProblem = true,
+                                scannedAnswerText = "",
+                                scannedFinalAnswer = null,
+                                scanErrorMessage = null,
+                                errorMessage = null
+                            )
+                        }
+                    }
+                    is ScanProblemStreamEvent.Streaming -> {
+                        _state.update {
+                            it.copy(
+                                isScanningProblem = true,
+                                scannedAnswerText = event.partialText,
+                                scanErrorMessage = null
+                            )
+                        }
+                    }
+                    is ScanProblemStreamEvent.Completed -> {
+                        _state.update {
+                            it.copy(
+                                isScanningProblem = false,
+                                scannedAnswerText = event.fullText,
+                                scannedFinalAnswer = event.finalAnswer,
+                                scanErrorMessage = null
+                            )
+                        }
+                    }
+                    is ScanProblemStreamEvent.Error -> {
+                        _state.update {
+                            it.copy(
+                                isScanningProblem = false,
+                                scannedAnswerText = null,
+                                scannedFinalAnswer = null,
+                                scanErrorMessage = event.message
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun setScanError(message: String) {
+        scanJob?.cancel()
+        _state.update {
+            it.copy(
+                isScanningProblem = false,
+                scannedAnswerText = null,
+                scannedFinalAnswer = null,
+                scanErrorMessage = message
+            )
+        }
+    }
+
+    fun clearScanResult() {
+        triggerHaptic()
+        scanJob?.cancel()
+        _state.update { it.withoutScanOverlay() }
+    }
+
+    private fun CalculatorUiState.withoutScanOverlay(): CalculatorUiState =
+        if (isScanningProblem || scannedAnswerText != null || scannedFinalAnswer != null || scanErrorMessage != null) {
+            copy(
+                isScanningProblem = false,
+                scannedAnswerText = null,
+                scannedFinalAnswer = null,
+                scanErrorMessage = null
+            )
+        } else {
+            this
+        }
+
+    private fun recalculate(state: CalculatorUiState): CalculatorUiState {
+        val cleanState = state.withoutScanOverlay()
+        if (cleanState.expression.isBlank()) {
+            return cleanState.copy(livePreview = "")
+        }
+        val preview = ExpressionParser.evaluateLivePreview(cleanState.expression, cleanState.angleMode)
         val previewText = when (preview) {
             is EvalResult.Success -> NumberFormatter.formatResult(
                 value = preview.value,
@@ -666,17 +871,23 @@ class CalculatorViewModel(
             )
             else -> ""
         }
-        return state.copy(livePreview = previewText)
+        return cleanState.copy(livePreview = previewText)
     }
 
     class Factory(
         private val settingsRepository: SettingsRepository,
         private val historyRepository: HistoryRepository,
-        private val hapticManager: HapticManager
+        private val hapticManager: HapticManager,
+        private val problemScannerRepository: ProblemScannerRepository = FirebaseProblemScannerRepository()
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return CalculatorViewModel(settingsRepository, historyRepository, hapticManager) as T
+            return CalculatorViewModel(
+                settingsRepository = settingsRepository,
+                historyRepository = historyRepository,
+                hapticManager = hapticManager,
+                problemScannerRepository = problemScannerRepository
+            ) as T
         }
     }
 }

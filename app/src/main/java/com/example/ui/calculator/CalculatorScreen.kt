@@ -1,14 +1,25 @@
 package com.example.ui.calculator
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,29 +34,42 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -65,17 +89,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.preferences.CucalcusSettings
 import com.example.data.preferences.KeypadArrangement
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
 import com.example.domain.math.NumberFormatter
+import com.example.platform.VoiceCaptureController
 import com.example.ui.components.BouncySurface
 import com.example.ui.components.CalculatorKeyButton
 import com.example.ui.components.ClipboardMathBanner
 import com.example.ui.components.CucalcusMoreMenuButton
+import com.example.ui.components.InlineCucalcusMenuCard
 import com.example.ui.components.KeypadKeyKind
+import com.example.ui.components.LocalCucalcusNavActions
+import com.example.ui.components.VoiceListeningDialog
 import com.example.ui.components.bouncyPress
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
@@ -89,13 +118,115 @@ fun CalculatorScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val colors = CucalcusTheme.colors
+    val navActions = LocalCucalcusNavActions.current
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
 
     LaunchedEffect(Unit) {
         val clip = clipboard.getText()?.text
         viewModel.checkClipboardCandidate(clip)
+    }
+
+    var isVoiceListening by remember { mutableStateOf(false) }
+    var voicePartialText by remember { mutableStateOf("") }
+
+    val voiceActivityFallbackLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val transcript = VoiceCaptureController.extractActivityResultTranscript(
+            result.resultCode,
+            result.data
+        )
+        if (!transcript.isNullOrBlank()) {
+            viewModel.processVoiceInput(transcript)
+        } else {
+            onShowMessage("No speech recognized. Please try again.")
+        }
+    }
+
+    val voiceController = remember(context) {
+        VoiceCaptureController(
+            context = context,
+            onPartialTranscript = { voicePartialText = it },
+            onFinalTranscript = { spoken ->
+                isVoiceListening = false
+                voicePartialText = ""
+                viewModel.processVoiceInput(spoken)
+            },
+            onCaptureError = { msg ->
+                isVoiceListening = false
+                voicePartialText = ""
+                onShowMessage(msg)
+            }
+        )
+    }
+
+    DisposableEffect(voiceController) {
+        onDispose { voiceController.stopAndDestroy() }
+    }
+
+    val launchVoiceCapture: () -> Unit = remember(voiceController) {
+        {
+            voicePartialText = ""
+            if (voiceController.isAvailable()) {
+                isVoiceListening = true
+                voiceController.startListening()
+            } else {
+                runCatching {
+                    voiceActivityFallbackLauncher.launch(VoiceCaptureController.createRecognizerIntent())
+                }.onFailure {
+                    onShowMessage("Speech recognition is not available on this device.")
+                }
+            }
+        }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchVoiceCapture()
+        } else {
+            onShowMessage("Microphone permission is needed for voice input.")
+        }
+    }
+
+    val handleVoiceMicClick: () -> Unit = {
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            launchVoiceCapture()
+        } else {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    val handleGrabOrPut: () -> Unit = {
+        if (state.grabbedAnswer != null) {
+            viewModel.putGrabbedAnswer()
+        } else {
+            val grabbed = viewModel.grabAnswer()
+            if (grabbed != null) {
+                clipboard.setText(AnnotatedString(grabbed))
+                onShowMessage("Grabbed answer: $grabbed")
+            } else {
+                onShowMessage("No calculation answer to grab yet")
+            }
+        }
+    }
+
+    if (isVoiceListening) {
+        VoiceListeningDialog(
+            partialTranscript = voicePartialText,
+            onStopClick = { voiceController.finishListening() },
+            onCancel = {
+                isVoiceListening = false
+                voicePartialText = ""
+                voiceController.stopAndDestroy()
+            }
+        )
     }
 
     BoxWithConstraints(
@@ -121,7 +252,11 @@ fun CalculatorScreen(
                         onToggleAngle = viewModel::toggleAngleMode,
                         onToggleSci = viewModel::toggleScientific,
                         onCopy = {
-                            val text = state.livePreview.ifBlank { state.formattedExpression }
+                            val text = when {
+                                !state.scannedAnswerText.isNullOrBlank() -> state.scannedAnswerText!!
+                                state.livePreview.isNotBlank() -> state.livePreview
+                                else -> state.formattedExpression
+                            }
                             if (text.isNotBlank()) {
                                 clipboard.setText(AnnotatedString(text))
                                 onShowMessage("Copied to clipboard")
@@ -130,6 +265,10 @@ fun CalculatorScreen(
                         onShare = {
                             shareCalculation(context, state)
                         }
+                    )
+                    InlineCucalcusMenuCard(
+                        visible = navActions.isMenuExpanded,
+                        navActions = navActions
                     )
                     ClipboardMathBanner(
                         expression = state.clipboardCandidate,
@@ -145,15 +284,19 @@ fun CalculatorScreen(
                             val msg = if (!state.isCursorLocked) "Display cursor locked" else "Display cursor unlocked"
                             onShowMessage(msg)
                         },
+                        onClearScan = viewModel::clearScanResult,
                         modifier = Modifier.weight(1f)
                     )
                     MemoryControlRow(
                         memoryValue = state.memoryValue,
+                        hasGrabbedAnswer = state.grabbedAnswer != null,
                         borderless = settings.borderlessButtons,
                         onClear = viewModel::onMemoryClear,
                         onRecall = viewModel::onMemoryRecall,
                         onAdd = viewModel::onMemoryAdd,
                         onSubtract = viewModel::onMemorySubtract,
+                        onGrabOrPut = handleGrabOrPut,
+                        onVoiceInput = handleVoiceMicClick,
                         onBackspace = viewModel::onBackspace
                     )
                 }
@@ -201,7 +344,11 @@ fun CalculatorScreen(
                     onToggleAngle = viewModel::toggleAngleMode,
                     onToggleSci = viewModel::toggleScientific,
                     onCopy = {
-                        val text = state.livePreview.ifBlank { state.formattedExpression }
+                        val text = when {
+                            !state.scannedAnswerText.isNullOrBlank() -> state.scannedAnswerText!!
+                            state.livePreview.isNotBlank() -> state.livePreview
+                            else -> state.formattedExpression
+                        }
                         if (text.isNotBlank()) {
                             clipboard.setText(AnnotatedString(text))
                             onShowMessage("Copied to clipboard")
@@ -210,6 +357,10 @@ fun CalculatorScreen(
                     onShare = {
                         shareCalculation(context, state)
                     }
+                )
+                InlineCucalcusMenuCard(
+                    visible = navActions.isMenuExpanded,
+                    navActions = navActions
                 )
                 ClipboardMathBanner(
                     expression = state.clipboardCandidate,
@@ -225,17 +376,21 @@ fun CalculatorScreen(
                         val msg = if (!state.isCursorLocked) "Display cursor locked" else "Display cursor unlocked"
                         onShowMessage(msg)
                     },
+                    onClearScan = viewModel::clearScanResult,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(0.34f)
                 )
                 MemoryControlRow(
                     memoryValue = state.memoryValue,
+                    hasGrabbedAnswer = state.grabbedAnswer != null,
                     borderless = settings.borderlessButtons,
                     onClear = viewModel::onMemoryClear,
                     onRecall = viewModel::onMemoryRecall,
                     onAdd = viewModel::onMemoryAdd,
                     onSubtract = viewModel::onMemorySubtract,
+                    onGrabOrPut = handleGrabOrPut,
+                    onVoiceInput = handleVoiceMicClick,
                     onBackspace = viewModel::onBackspace
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -277,6 +432,8 @@ fun CalculatorScreen(
 
 private fun shareCalculation(context: android.content.Context, state: CalculatorUiState) {
     val text = when {
+        !state.scannedAnswerText.isNullOrBlank() ->
+            "${state.scannedAnswerText}\n— Solved with Cucalcus"
         state.formattedExpression.isNotBlank() && state.livePreview.isNotBlank() ->
             "${state.formattedExpression} = ${state.livePreview}\n— Computed with Cucalcus"
         state.formattedExpression.isNotBlank() ->
@@ -461,14 +618,17 @@ private fun CalculatorDisplayPanel(
     settings: CucalcusSettings,
     onCursorPositionChange: (Int) -> Unit,
     onToggleCursorLock: () -> Unit,
+    onClearScan: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = CucalcusTheme.colors
     val displayFont = LocalDisplayFontFamily.current
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(state.isCursorLocked) {
-        if (state.isCursorLocked) {
+    val isScanMode = state.isScanningProblem || state.scannedAnswerText != null || state.scanErrorMessage != null
+
+    LaunchedEffect(state.isCursorLocked, isScanMode) {
+        if (state.isCursorLocked || isScanMode) {
             focusManager.clearFocus()
         }
     }
@@ -499,10 +659,20 @@ private fun CalculatorDisplayPanel(
         selection = TextRange(clampedCursor)
     )
 
+    val scanScrollState = rememberScrollState()
+    LaunchedEffect(state.scannedAnswerText, state.isScanningProblem) {
+        if (state.isScanningProblem && scanScrollState.maxValue > 0) {
+            scanScrollState.animateScrollTo(scanScrollState.maxValue)
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = colors.secondaryBg,
-        border = BorderStroke(1.dp, colors.border),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isScanMode) colors.accent.copy(alpha = 0.55f) else colors.border
+        ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -519,16 +689,65 @@ private fun CalculatorDisplayPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "$formatTag · ${settings.decimalPrecision}D",
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
-                    color = colors.secondaryText.copy(alpha = 0.8f)
-                )
+                if (isScanMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            tint = colors.accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = if (state.isScanningProblem) "AI MODE · SOLVING..." else "AI MODE ANSWER",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 1.2.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = colors.accent
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "$formatTag · ${settings.decimalPrecision}D",
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                        color = colors.secondaryText.copy(alpha = 0.8f)
+                    )
+                }
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (hasMemory) {
+                    if (isScanMode) {
+                        BouncySurface(
+                            onClick = onClearScan,
+                            shape = RoundedCornerShape(50),
+                            color = colors.cardBg,
+                            border = BorderStroke(1.dp, colors.border),
+                            modifier = Modifier.testTag("clear_scan_result_button")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear scanned answer",
+                                    tint = colors.secondaryText,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = "CLEAR",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = colors.secondaryText
+                                )
+                            }
+                        }
+                    } else if (hasMemory) {
                         val formattedMem = NumberFormatter.formatResult(
                             state.memoryValue,
                             settings.decimalPrecision.coerceAtMost(4),
@@ -578,75 +797,277 @@ private fun CalculatorDisplayPanel(
                 }
             }
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.End
-            ) {
-                InterceptPlatformTextInput(interceptor = suppressImeInterceptor) {
-                    BasicTextField(
-                        value = textFieldValue,
-                        onValueChange = { updated ->
-                            if (!state.isCursorLocked && updated.text == state.expression) {
-                                onCursorPositionChange(updated.selection.end)
-                            }
-                        },
-                        enabled = !state.isCursorLocked,
-                        singleLine = true,
-                        visualTransformation = visualTransformation,
-                        cursorBrush = if (state.isCursorLocked) SolidColor(colors.accent.copy(alpha = 0f)) else SolidColor(colors.accent),
-                        textStyle = TextStyle(
-                            fontFamily = displayFont,
-                            fontSize = dynamicSp.sp,
-                            fontWeight = FontWeight.Light,
-                            color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.55f) else colors.primaryText,
-                            textAlign = TextAlign.End
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("calculator_display"),
-                        decorationBox = { innerTextField ->
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.CenterEnd
+            if (isScanMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(top = 6.dp),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    when {
+                        state.isScanningProblem && state.scannedAnswerText.isNullOrBlank() -> {
+                            AiModeWaitingIndicator(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .testTag("ai_waiting_animation")
+                            )
+                        }
+                        state.scanErrorMessage != null -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(scanScrollState)
                             ) {
-                                if (state.expression.isEmpty()) {
-                                    Text(
-                                        text = "0",
-                                        fontFamily = displayFont,
-                                        fontSize = dynamicSp.sp,
-                                        fontWeight = FontWeight.Light,
-                                        color = colors.secondaryText.copy(alpha = 0.55f),
-                                        maxLines = 1,
-                                        textAlign = TextAlign.End,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                                innerTextField()
+                                Text(
+                                    text = state.scanErrorMessage,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.error,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("scanned_answer_text")
+                                )
                             }
                         }
-                    )
+                        else -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(scanScrollState)
+                            ) {
+                                SelectionContainer {
+                                    Text(
+                                        text = state.scannedAnswerText.orEmpty(),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontSize = (15f * settings.fontScale).sp,
+                                            lineHeight = (21f * settings.fontScale).sp
+                                        ),
+                                        color = colors.primaryText,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("scanned_answer_text")
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                AnimatedContent(
-                    targetState = state.errorMessage ?: state.livePreview,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "preview_anim"
-                ) { text ->
-                    val isError = state.errorMessage != null
+                if (state.isScanningProblem) {
+                    LinearProgressIndicator(
+                        color = colors.accent,
+                        trackColor = colors.border.copy(alpha = 0.45f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .padding(top = 4.dp)
+                    )
+                } else if (!state.scannedFinalAnswer.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isError) text else if (text.isNotEmpty()) "= $text" else " ",
+                        text = "= ${state.scannedFinalAnswer}",
                         fontFamily = displayFont,
-                        fontSize = (if (isError) 15f else 22f * settings.fontScale).sp,
-                        fontWeight = if (isError) FontWeight.Medium else FontWeight.Normal,
-                        color = if (isError) colors.error else colors.accent,
+                        fontSize = (20f * settings.fontScale).sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.accent,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.End,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("calculator_preview")
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    InterceptPlatformTextInput(interceptor = suppressImeInterceptor) {
+                        BasicTextField(
+                            value = textFieldValue,
+                            onValueChange = { updated ->
+                                if (!state.isCursorLocked && updated.text == state.expression) {
+                                    onCursorPositionChange(updated.selection.end)
+                                }
+                            },
+                            enabled = !state.isCursorLocked,
+                            singleLine = true,
+                            visualTransformation = visualTransformation,
+                            cursorBrush = if (state.isCursorLocked) SolidColor(colors.accent.copy(alpha = 0f)) else SolidColor(colors.accent),
+                            textStyle = TextStyle(
+                                fontFamily = displayFont,
+                                fontSize = dynamicSp.sp,
+                                fontWeight = FontWeight.Light,
+                                color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.55f) else colors.primaryText,
+                                textAlign = TextAlign.End
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("calculator_display"),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    if (state.expression.isEmpty()) {
+                                        Text(
+                                            text = "0",
+                                            fontFamily = displayFont,
+                                            fontSize = dynamicSp.sp,
+                                            fontWeight = FontWeight.Light,
+                                            color = colors.secondaryText.copy(alpha = 0.55f),
+                                            maxLines = 1,
+                                            textAlign = TextAlign.End,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    AnimatedContent(
+                        targetState = state.errorMessage ?: state.livePreview,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "preview_anim"
+                    ) { text ->
+                        val isError = state.errorMessage != null
+                        Text(
+                            text = if (isError) text else if (text.isNotEmpty()) "= $text" else " ",
+                            fontFamily = displayFont,
+                            fontSize = (if (isError) 15f else 22f * settings.fontScale).sp,
+                            fontWeight = if (isError) FontWeight.Medium else FontWeight.Normal,
+                            color = if (isError) colors.error else colors.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("calculator_preview")
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiModeWaitingIndicator(modifier: Modifier = Modifier) {
+    val colors = CucalcusTheme.colors
+    val reducedMotion = CucalcusTheme.reducedMotion
+
+    val pulseScale: Float
+    val dot1Alpha: Float
+    val dot2Alpha: Float
+    val dot3Alpha: Float
+
+    if (reducedMotion) {
+        pulseScale = 1f
+        dot1Alpha = 0.85f
+        dot2Alpha = 0.65f
+        dot3Alpha = 0.45f
+    } else {
+        val transition = rememberInfiniteTransition(label = "ai_waiting_transition")
+        pulseScale = transition.animateFloat(
+            initialValue = 0.92f,
+            targetValue = 1.12f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(720, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "ai_pulse_scale"
+        ).value
+        dot1Alpha = transition.animateFloat(
+            initialValue = 0.28f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(550, delayMillis = 0, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "dot1"
+        ).value
+        dot2Alpha = transition.animateFloat(
+            initialValue = 0.28f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(550, delayMillis = 180, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "dot2"
+        ).value
+        dot3Alpha = transition.animateFloat(
+            initialValue = 0.28f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(550, delayMillis = 360, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "dot3"
+        ).value
+    }
+
+    Column(
+        modifier = modifier.padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .graphicsLayer {
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                    }
+                    .clip(CircleShape)
+                    .background(colors.accent.copy(alpha = 0.16f))
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = colors.accent,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Solving mathematical problem",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = colors.primaryText
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(dot1Alpha, dot2Alpha, dot3Alpha).forEach { alpha ->
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .graphicsLayer {
+                                    this.alpha = alpha
+                                    val s = 0.78f + alpha * 0.35f
+                                    scaleX = s
+                                    scaleY = s
+                                }
+                                .clip(CircleShape)
+                                .background(colors.accent)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        text = "AI Mode is thinking...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.secondaryText
                     )
                 }
             }
@@ -657,11 +1078,14 @@ private fun CalculatorDisplayPanel(
 @Composable
 private fun MemoryControlRow(
     memoryValue: Double,
+    hasGrabbedAnswer: Boolean,
     borderless: Boolean,
     onClear: () -> Unit,
     onRecall: () -> Unit,
     onAdd: () -> Unit,
     onSubtract: () -> Unit,
+    onGrabOrPut: () -> Unit,
+    onVoiceInput: () -> Unit,
     onBackspace: () -> Unit
 ) {
     val colors = CucalcusTheme.colors
@@ -676,7 +1100,7 @@ private fun MemoryControlRow(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf(
                 "MC" to onClear,
@@ -693,41 +1117,88 @@ private fun MemoryControlRow(
                 ) {
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = if (label in listOf("MC", "MR") && !hasMemory) {
                             colors.secondaryText.copy(alpha = 0.45f)
                         } else {
                             colors.primaryText
                         },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp)
                     )
                 }
             }
         }
 
-        BouncySurface(
-            onClick = onBackspace,
-            shape = RoundedCornerShape(14.dp),
-            color = colors.elevatedSurface,
-            border = keyBorder,
-            modifier = Modifier.testTag("key_backspace")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            BouncySurface(
+                onClick = onGrabOrPut,
+                shape = RoundedCornerShape(14.dp),
+                color = if (hasGrabbedAnswer) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
+                border = if (hasGrabbedAnswer) {
+                    BorderStroke(1.dp, colors.accent)
+                } else {
+                    keyBorder
+                },
+                modifier = Modifier.testTag("grab_put_button")
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Backspace,
-                    contentDescription = "Backspace",
-                    tint = colors.accent,
-                    modifier = Modifier.size(16.dp)
-                )
                 Text(
-                    text = "DEL",
+                    text = if (hasGrabbedAnswer) "PUT" else "GRAB",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = colors.primaryText
+                    color = if (hasGrabbedAnswer) colors.accent else colors.primaryText,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                 )
+            }
+
+            BouncySurface(
+                onClick = onVoiceInput,
+                shape = RoundedCornerShape(14.dp),
+                color = colors.cardBg,
+                border = keyBorder,
+                modifier = Modifier.testTag("voice_input_button")
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Mic,
+                        contentDescription = "Voice calculation input",
+                        tint = colors.accent,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+            }
+
+            BouncySurface(
+                onClick = onBackspace,
+                shape = RoundedCornerShape(14.dp),
+                color = colors.elevatedSurface,
+                border = keyBorder,
+                modifier = Modifier.testTag("key_backspace")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Backspace,
+                        contentDescription = "Backspace",
+                        tint = colors.accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "DEL",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = colors.primaryText,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
