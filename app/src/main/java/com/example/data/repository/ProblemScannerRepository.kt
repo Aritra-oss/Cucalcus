@@ -180,21 +180,32 @@ class FirebaseProblemScannerRepository(
         }
     }.catch { throwable ->
 
-        if (throwable is CancellationException) throw throwable
+        when (throwable) {
+            // TimeoutCancellationException is also a CancellationException.
+            // Handle it first, otherwise it is rethrown and the UI remains
+            // stuck in the loading state without receiving an Error event.
+            is TimeoutCancellationException -> {
+                Log.e(TAG, "AI Mode timed out after 60 seconds.", throwable)
+                emit(
+                    ScanProblemStreamEvent.Error(
+                        "AI Mode timed out after 60 seconds. Check your connection and try again."
+                    )
+                )
+            }
 
-        Log.e(TAG, "AI Mode problem solve failed", throwable)
+            // Preserve real coroutine cancellation (for example, when the
+            // user starts another scan or leaves the screen).
+            is CancellationException -> throw throwable
 
-        val message = when (throwable) {
-            is TimeoutCancellationException ->
-                "AI Mode timed out after 60 seconds. Check your connection and try again."
-
-            else ->
-                throwable.localizedMessage?.takeIf {
+            else -> {
+                Log.e(TAG, "AI Mode problem solve failed", throwable)
+                val message = throwable.localizedMessage?.takeIf {
                     it.isNotBlank()
                 } ?: "Could not solve problem in AI Mode."
-        }
 
-        emit(ScanProblemStreamEvent.Error(message))
+                emit(ScanProblemStreamEvent.Error(message))
+            }
+        }
     }
 
     companion object {
