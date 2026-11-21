@@ -258,7 +258,13 @@ fun SettingsScreen(
         }
 
         val transitionMs = if (reducedMotion) 0 else 180
-        AnimatedContent(
+
+if (isPreparingSettings) {
+    SettingsBodySkeleton(
+        modifier = Modifier.weight(1f)
+    )
+} else {
+    AnimatedContent(
             targetState = selectedFilter,
             transitionSpec = {
                 fadeIn(tween(transitionMs)) togetherWith fadeOut(tween((transitionMs * 0.7f).toInt()))
