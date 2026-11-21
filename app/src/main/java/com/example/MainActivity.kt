@@ -13,13 +13,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -235,10 +236,24 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val enterMs = if (reducedMotion) 0 else 190
-                val exitMs = if (reducedMotion) 0 else 150
-                val enterSpec = tween<Float>(enterMs, easing = FastOutSlowInEasing)
-                val exitSpec = tween<Float>(exitMs, easing = FastOutSlowInEasing)
+                // Keep route motion short and GPU-friendly. A lightly damped spring gives
+                // each section a soft settle without the long oscillation that can feel laggy.
+                val routeEnterSpring = spring<Float>(
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMedium
+                )
+                val routeExitSpring = spring<Float>(
+                    dampingRatio = 1.0f,
+                    stiffness = Spring.StiffnessMedium
+                )
+                val routeOffsetEnterSpring = spring(
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMedium
+                )
+                val routeOffsetExitSpring = spring(
+                    dampingRatio = 1.0f,
+                    stiffness = Spring.StiffnessMedium
+                )
 
                 val navActions = remember(currentRoute, isMenuExpanded, navigateTo) {
                     CucalcusNavActions(
@@ -296,33 +311,58 @@ class MainActivity : ComponentActivity() {
                                     startDestination = CucalcusRoute.CALCULATOR.route,
                                     enterTransition = {
                                         if (reducedMotion) {
-                                            fadeIn(tween(0))
+                                            fadeIn(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeIn(enterSpec) +
+                                            fadeIn(routeEnterSpring) +
+                                                scaleIn(
+                                                    animationSpec = routeEnterSpring,
+                                                    initialScale = 0.985f
+                                                ) +
                                                 slideInVertically(
-                                                    animationSpec = tween(enterMs, easing = FastOutSlowInEasing)
-                                                ) { it / 18 }
+                                                    animationSpec = routeOffsetEnterSpring
+                                                ) { fullHeight -> fullHeight / 36 }
                                         }
                                     },
                                     exitTransition = {
                                         if (reducedMotion) {
-                                            fadeOut(tween(0))
+                                            fadeOut(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeOut(exitSpec)
+                                            fadeOut(routeExitSpring) +
+                                                scaleOut(
+                                                    animationSpec = routeExitSpring,
+                                                    targetScale = 0.995f
+                                                ) +
+                                                slideOutVertically(
+                                                    animationSpec = routeOffsetExitSpring
+                                                ) { fullHeight -> -fullHeight / 48 }
                                         }
                                     },
                                     popEnterTransition = {
                                         if (reducedMotion) {
-                                            fadeIn(tween(0))
+                                            fadeIn(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeIn(enterSpec)
+                                            fadeIn(routeEnterSpring) +
+                                                scaleIn(
+                                                    animationSpec = routeEnterSpring,
+                                                    initialScale = 0.985f
+                                                ) +
+                                                slideInVertically(
+                                                    animationSpec = routeOffsetEnterSpring
+                                                ) { fullHeight -> fullHeight / 36 }
                                         }
                                     },
                                     popExitTransition = {
                                         if (reducedMotion) {
-                                            fadeOut(tween(0))
+                                            fadeOut(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeOut(exitSpec)
+                                            fadeOut(routeExitSpring) +
+                                                scaleOut(
+                                                    animationSpec = routeExitSpring,
+                                                    targetScale = 0.995f
+                                                ) +
+                                                slideOutVertically(
+                                                    animationSpec = routeOffsetExitSpring
+                                                ) { fullHeight -> -fullHeight / 48 }
                                         }
                                     }
                                 ) {
