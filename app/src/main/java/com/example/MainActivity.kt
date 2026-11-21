@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.IntOffset
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -246,11 +247,11 @@ class MainActivity : ComponentActivity() {
                     dampingRatio = 1.0f,
                     stiffness = Spring.StiffnessMedium
                 )
-                val routeOffsetEnterSpring = spring(
+                val routeOffsetEnterSpring = spring<IntOffset>(
                     dampingRatio = 0.90f,
                     stiffness = Spring.StiffnessMedium
                 )
-                val routeOffsetExitSpring = spring(
+                val routeOffsetExitSpring = spring<IntOffset>(
                     dampingRatio = 1.0f,
                     stiffness = Spring.StiffnessMedium
                 )
