@@ -159,9 +159,10 @@ fun SettingsScreen(
     val reducedMotion = CucalcusTheme.reducedMotion
 
     LaunchedEffect(Unit) {
-        if (!BrandIconBitmapCache.isWarmedUp) {
-            BrandIconBitmapCache.warmUp(context)
-        }
+    if (!BrandIconBitmapCache.isWarmedUp) {
+        BrandIconBitmapCache.warmUp(context)
+    }
+    isPreparingSettings = false
     }
 
     LaunchedEffect(selectedFilter) {
