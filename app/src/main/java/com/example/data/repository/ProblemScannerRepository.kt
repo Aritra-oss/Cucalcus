@@ -78,7 +78,7 @@ class FirebaseProblemScannerRepository(
                 // Gemini 3.8 Flash defaults to HIGH thinking. MEDIUM is
                 // sufficient for educational calculator tasks and reduces latency.
                 thinkingConfig = thinkingConfig {
-                    thinkingLevel = ThinkingLevel.MEDIUM
+                    thinkingLevel = ThinkingLevel.LOW
                 }
                 maxOutputTokens = 2048
             },
@@ -153,21 +153,35 @@ class FirebaseProblemScannerRepository(
 
         val accumulated = StringBuilder()
 
-        withTimeout(45_000L) {
-            model.generateContentStream(inputContent).collect { chunk ->
+        // Flow.catch deliberately does not catch cancellation exceptions.
+        // Therefore the timeout must be caught inside the flow builder itself;
+        // otherwise the UI never receives an Error event and keeps showing its
+        // thinking animation until some unrelated state change occurs.
+        try {
+            withTimeout(45_000L) {
+                model.generateContentStream(inputContent).collect { chunk ->
 
-                val part = chunk.text.orEmpty()
+                    val part = chunk.text.orEmpty()
 
-                if (part.isNotEmpty()) {
-                    accumulated.append(part)
+                    if (part.isNotEmpty()) {
+                        accumulated.append(part)
 
-                    emit(
-                        ScanProblemStreamEvent.Streaming(
-                            accumulated.toString().trim()
+                        emit(
+                            ScanProblemStreamEvent.Streaming(
+                                accumulated.toString().trim()
+                            )
                         )
-                    )
+                    }
                 }
             }
+        } catch (timeout: TimeoutCancellationException) {
+            Log.e(TAG, "AI Mode timed out after 45 seconds.", timeout)
+            emit(
+                ScanProblemStreamEvent.Error(
+                    "AI Mode took too long to respond. Please check your connection and try again."
+                )
+            )
+            return@flow
         }
 
         val rawText = accumulated.toString().trim()
@@ -191,32 +205,15 @@ class FirebaseProblemScannerRepository(
         }
     }.catch { throwable ->
 
-        when (throwable) {
-            // TimeoutCancellationException is also a CancellationException.
-            // Handle it first, otherwise it is rethrown and the UI remains
-            // stuck in the loading state without receiving an Error event.
-            is TimeoutCancellationException -> {
-                Log.e(TAG, "AI Mode timed out after 45 seconds.", throwable)
-                emit(
-                    ScanProblemStreamEvent.Error(
-                        "AI Mode took too long to respond. Please check your connection and try again."
-                    )
-                )
-            }
+        // Keep cancellation from user navigation or a replacement request intact.
+        if (throwable is CancellationException) throw throwable
 
-            // Preserve real coroutine cancellation (for example, when the
-            // user starts another scan or leaves the screen).
-            is CancellationException -> throw throwable
+        Log.e(TAG, "AI Mode problem solve failed", throwable)
+        val message = throwable.localizedMessage?.takeIf {
+            it.isNotBlank()
+        } ?: "Could not solve problem in AI Mode."
 
-            else -> {
-                Log.e(TAG, "AI Mode problem solve failed", throwable)
-                val message = throwable.localizedMessage?.takeIf {
-                    it.isNotBlank()
-                } ?: "Could not solve problem in AI Mode."
-
-                emit(ScanProblemStreamEvent.Error(message))
-            }
-        }
+        emit(ScanProblemStreamEvent.Error(message))
     }
 
     companion object {
