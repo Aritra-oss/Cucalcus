@@ -75,8 +75,7 @@ class FirebaseProblemScannerRepository(
         Firebase.ai.generativeModel(
             modelName = "gemini-3.8-flash",
             generationConfig = generationConfig {
-                // Gemini 3.8 Flash defaults to HIGH thinking. MEDIUM is
-                // sufficient for educational calculator tasks and reduces latency.
+                // Use LOW thinking for short educational answers to reduce latency.
                 thinkingConfig = thinkingConfig {
                     thinkingLevel = ThinkingLevel.LOW
                 }
