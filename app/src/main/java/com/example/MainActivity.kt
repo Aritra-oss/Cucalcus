@@ -235,8 +235,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val enterMs = if (reducedMotion) 0 else 280
-                val exitMs = if (reducedMotion) 0 else 200
+                val enterMs = if (reducedMotion) 0 else 190
+                val exitMs = if (reducedMotion) 0 else 150
                 val enterSpec = tween<Float>(enterMs, easing = FastOutSlowInEasing)
                 val exitSpec = tween<Float>(exitMs, easing = FastOutSlowInEasing)
 
@@ -299,31 +299,30 @@ class MainActivity : ComponentActivity() {
                                             fadeIn(tween(0))
                                         } else {
                                             fadeIn(enterSpec) +
-                                                scaleIn(initialScale = 0.965f, animationSpec = enterSpec) +
                                                 slideInVertically(
                                                     animationSpec = tween(enterMs, easing = FastOutSlowInEasing)
-                                                ) { it / 32 }
+                                                ) { it / 18 }
                                         }
                                     },
                                     exitTransition = {
                                         if (reducedMotion) {
                                             fadeOut(tween(0))
                                         } else {
-                                            fadeOut(exitSpec) + scaleOut(targetScale = 0.985f, animationSpec = exitSpec)
+                                            fadeOut(exitSpec)
                                         }
                                     },
                                     popEnterTransition = {
                                         if (reducedMotion) {
                                             fadeIn(tween(0))
                                         } else {
-                                            fadeIn(enterSpec) + scaleIn(initialScale = 0.975f, animationSpec = enterSpec)
+                                            fadeIn(enterSpec)
                                         }
                                     },
                                     popExitTransition = {
                                         if (reducedMotion) {
                                             fadeOut(tween(0))
                                         } else {
-                                            fadeOut(exitSpec) + scaleOut(targetScale = 0.965f, animationSpec = exitSpec)
+                                            fadeOut(exitSpec)
                                         }
                                     }
                                 ) {
