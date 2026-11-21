@@ -58,21 +58,21 @@ import java.util.concurrent.ConcurrentHashMap
 
 @DrawableRes
 fun AppIconOption.drawableRes(): Int = when (this) {
-    AppIconOption.NORMAL_GOLD -> R.drawable.ic_brand_normal_gold
-    AppIconOption.NORMAL_TEAL -> R.drawable.ic_brand_normal_teal
-    AppIconOption.NORMAL_GREEN -> R.drawable.ic_brand_normal_green
-    AppIconOption.NORMAL_MAROON -> R.drawable.ic_brand_normal_maroon
-    AppIconOption.NORMAL_CRIMSON -> R.drawable.ic_brand_normal_crimson
-    AppIconOption.NORMAL_BLUE -> R.drawable.ic_brand_normal_blue
-    AppIconOption.NORMAL_PURPLE -> R.drawable.ic_brand_normal_purple
-    AppIconOption.IPL_GT -> R.drawable.ic_brand_ipl_gt
-    AppIconOption.IPL_KKR -> R.drawable.ic_brand_ipl_kkr
-    AppIconOption.IPL_RCB -> R.drawable.ic_brand_ipl_rcb
-    AppIconOption.IPL_SRH -> R.drawable.ic_brand_ipl_srh
-    AppIconOption.IPL_MI -> R.drawable.ic_brand_ipl_mi
-    AppIconOption.IPL_RR -> R.drawable.ic_brand_ipl_rr
-    AppIconOption.IPL_CSK -> R.drawable.ic_brand_ipl_csk
-    AppIconOption.INDIA_FLAG -> R.drawable.ic_brand_india_flag
+    AppIconOption.NORMAL_GOLD -> R.drawable.ic_adaptive_normal_gold
+    AppIconOption.NORMAL_TEAL -> R.drawable.ic_adaptive_normal_teal
+    AppIconOption.NORMAL_GREEN -> R.drawable.ic_adaptive_normal_green
+    AppIconOption.NORMAL_MAROON -> R.drawable.ic_adaptive_normal_maroon
+    AppIconOption.NORMAL_CRIMSON -> R.drawable.ic_adaptive_normal_crimson
+    AppIconOption.NORMAL_BLUE -> R.drawable.ic_adaptive_normal_blue
+    AppIconOption.NORMAL_PURPLE -> R.drawable.ic_adaptive_normal_purple
+    AppIconOption.IPL_GT -> R.drawable.ic_adaptive_ipl_gt
+    AppIconOption.IPL_KKR -> R.drawable.ic_adaptive_ipl_kkr
+    AppIconOption.IPL_RCB -> R.drawable.ic_adaptive_ipl_rcb
+    AppIconOption.IPL_SRH -> R.drawable.ic_adaptive_ipl_srh
+    AppIconOption.IPL_MI -> R.drawable.ic_adaptive_ipl_mi
+    AppIconOption.IPL_RR -> R.drawable.ic_adaptive_ipl_rr
+    AppIconOption.IPL_CSK -> R.drawable.ic_adaptive_ipl_csk
+    AppIconOption.INDIA_FLAG -> R.drawable.ic_adaptive_india_flag
 }
 
 /**
@@ -120,14 +120,14 @@ private fun BrandIconImage(
         Image(
             bitmap = cached,
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             modifier = modifier
         )
     } else {
         Image(
             painter = painterResource(id = resId),
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             modifier = modifier
         )
     }
