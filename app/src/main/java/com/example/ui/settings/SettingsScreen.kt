@@ -159,11 +159,15 @@ fun SettingsScreen(
     val reducedMotion = CucalcusTheme.reducedMotion
 
     LaunchedEffect(Unit) {
+    delay(900)
+
     if (!BrandIconBitmapCache.isWarmedUp) {
         BrandIconBitmapCache.warmUp(context)
     }
+
     isPreparingSettings = false
     }
+    
 
     LaunchedEffect(selectedFilter) {
         if (!reducedMotion && bodyScrollState.value > 0) {
