@@ -63,8 +63,8 @@ fun Modifier.bouncyPress(
     val scale by animateFloatAsState(
         targetValue = if (isPressed && enabled && !reducedMotion) pressedScale else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
+            dampingRatio = 0.86f,
+            stiffness = Spring.StiffnessHigh
         ),
         label = "bouncy_press_scale"
     )
