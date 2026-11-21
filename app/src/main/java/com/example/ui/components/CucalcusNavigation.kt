@@ -264,22 +264,46 @@ fun InlineCucalcusMenuCard(
         } else {
             expandVertically(
                 animationSpec = spring(
-                    dampingRatio = 0.86f,
+                    dampingRatio = 0.88f,
                     stiffness = Spring.StiffnessMediumLow
                 ),
                 expandFrom = Alignment.Top
-            ) + fadeIn(tween(180))
+            ) + fadeIn(
+                animationSpec = spring(
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + scaleIn(
+                animationSpec = spring(
+                    dampingRatio = 0.86f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                initialScale = 0.965f,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+            )
         },
         exit = if (reducedMotion) {
             fadeOut(tween(0))
         } else {
             shrinkVertically(
                 animationSpec = spring(
-                    dampingRatio = 0.92f,
-                    stiffness = Spring.StiffnessMedium
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMediumLow
                 ),
                 shrinkTowards = Alignment.Top
-            ) + fadeOut(tween(140))
+            ) + fadeOut(
+                animationSpec = spring(
+                    dampingRatio = 0.92f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + scaleOut(
+                animationSpec = spring(
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                targetScale = 0.985f,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+            )
         },
         modifier = modifier
     ) {
