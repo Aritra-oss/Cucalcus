@@ -19,8 +19,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -237,15 +235,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Keep route changes synchronized and short. Fade/scale share one tween
-                // timeline; avoid vertical slide which reads as a second sequential movement.
-                val routeEnterTween = androidx.compose.animation.core.tween<Float>(
-                    durationMillis = 190,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                // A shared spring gives every destination the same smooth motion curve.
+                // The small horizontal offset is deliberately subtle so navigation feels
+                // connected without looking like separate, sequential animations.
+                val routeFadeSpring = androidx.compose.animation.core.spring<Float>(
+                    dampingRatio = 0.92f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 )
-                val routeExitTween = androidx.compose.animation.core.tween<Float>(
-                    durationMillis = 150,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                val routeScaleSpring = androidx.compose.animation.core.spring<Float>(
+                    dampingRatio = 0.90f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                )
+                val routeSlideSpring = androidx.compose.animation.core.spring<IntOffset>(
+                    dampingRatio = 0.94f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 )
 
                 val navActions = remember(currentRoute, isMenuExpanded, navigateTo) {
@@ -306,56 +309,44 @@ class MainActivity : ComponentActivity() {
                                         if (reducedMotion) {
                                             fadeIn(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeIn(routeEnterTween) +
-                                                scaleIn(
-                                                    animationSpec = androidx.compose.animation.core.tween(
-                                                        durationMillis = 190,
-                                                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                                                    ),
-                                                    initialScale = 0.985f
-                                                )
+                                            fadeIn(routeFadeSpring) +
+                                                scaleIn(routeScaleSpring, initialScale = 0.975f) +
+                                                androidx.compose.animation.slideInHorizontally(
+                                                    animationSpec = routeSlideSpring
+                                                ) { fullWidth -> fullWidth / 18 }
                                         }
                                     },
                                     exitTransition = {
                                         if (reducedMotion) {
                                             fadeOut(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeOut(routeExitTween) +
-                                                scaleOut(
-                                                    animationSpec = androidx.compose.animation.core.tween(
-                                                        durationMillis = 150,
-                                                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                                                    ),
-                                                    targetScale = 0.992f
-                                                )
+                                            fadeOut(routeFadeSpring) +
+                                                scaleOut(routeScaleSpring, targetScale = 0.99f) +
+                                                androidx.compose.animation.slideOutHorizontally(
+                                                    animationSpec = routeSlideSpring
+                                                ) { fullWidth -> -fullWidth / 22 }
                                         }
                                     },
                                     popEnterTransition = {
                                         if (reducedMotion) {
                                             fadeIn(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeIn(routeEnterTween) +
-                                                scaleIn(
-                                                    animationSpec = androidx.compose.animation.core.tween(
-                                                        durationMillis = 190,
-                                                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                                                    ),
-                                                    initialScale = 0.985f
-                                                )
+                                            fadeIn(routeFadeSpring) +
+                                                scaleIn(routeScaleSpring, initialScale = 0.975f) +
+                                                androidx.compose.animation.slideInHorizontally(
+                                                    animationSpec = routeSlideSpring
+                                                ) { fullWidth -> -fullWidth / 18 }
                                         }
                                     },
                                     popExitTransition = {
                                         if (reducedMotion) {
                                             fadeOut(androidx.compose.animation.core.tween(0))
                                         } else {
-                                            fadeOut(routeExitTween) +
-                                                scaleOut(
-                                                    animationSpec = androidx.compose.animation.core.tween(
-                                                        durationMillis = 150,
-                                                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                                                    ),
-                                                    targetScale = 0.992f
-                                                )
+                                            fadeOut(routeFadeSpring) +
+                                                scaleOut(routeScaleSpring, targetScale = 0.99f) +
+                                                androidx.compose.animation.slideOutHorizontally(
+                                                    animationSpec = routeSlideSpring
+                                                ) { fullWidth -> fullWidth / 22 }
                                         }
                                     }
                                 ) {
