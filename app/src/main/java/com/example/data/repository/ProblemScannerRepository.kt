@@ -19,12 +19,11 @@ import com.google.firebase.ai.type.generationConfig
 import com.google.firebase.ai.type.thinkingConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -153,29 +152,21 @@ class FirebaseProblemScannerRepository(
 
         val accumulated = StringBuilder()
 
-        // Flow.catch deliberately does not catch cancellation exceptions.
-        // Therefore the timeout must be caught inside the flow builder itself;
-        // otherwise the UI never receives an Error event and keeps showing its
-        // thinking animation until some unrelated state change occurs.
-        try {
-            withTimeout(45_000L) {
-                model.generateContentStream(inputContent).collect { chunk ->
-
-                    val part = chunk.text.orEmpty()
-
-                    if (part.isNotEmpty()) {
-                        accumulated.append(part)
-
-                        emit(
-                            ScanProblemStreamEvent.Streaming(
-                                accumulated.toString().trim()
-                            )
-                        )
-                    }
+        // Collect within a bounded timeout without emitting from inside a
+        // try/catch block. withTimeoutOrNull returns null only for this
+        // timeout; cancellation from the user/screen still propagates.
+        val completedInTime = withTimeoutOrNull(45_000L) {
+            model.generateContentStream(inputContent).collect { chunk ->
+                val part = chunk.text.orEmpty()
+                if (part.isNotEmpty()) {
+                    accumulated.append(part)
                 }
             }
-        } catch (timeout: TimeoutCancellationException) {
-            Log.e(TAG, "AI Mode timed out after 45 seconds.", timeout)
+            true
+        } ?: false
+
+        if (!completedInTime) {
+            Log.e(TAG, "AI Mode timed out after 45 seconds.")
             emit(
                 ScanProblemStreamEvent.Error(
                     "AI Mode took too long to respond. Please check your connection and try again."
@@ -193,6 +184,7 @@ class FirebaseProblemScannerRepository(
                 )
             )
         } else {
+            emit(ScanProblemStreamEvent.Streaming(rawText))
             val (normalizedText, finalAns) =
                 normalizeMathResponse(rawText)
 
@@ -205,7 +197,8 @@ class FirebaseProblemScannerRepository(
         }
     }.catch { throwable ->
 
-        // Keep cancellation from user navigation or a replacement request intact.
+        // Flow.catch does not catch cancellation exceptions; preserve user
+        // cancellation and convert only genuine request failures to UI errors.
         if (throwable is CancellationException) throw throwable
 
         Log.e(TAG, "AI Mode problem solve failed", throwable)
