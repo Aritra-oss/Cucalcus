@@ -229,8 +229,11 @@ fun InlineCucalcusMenuCard(
     var typedProblemText by remember { mutableStateOf("") }
     val inputFocusRequester = remember { FocusRequester() }
 
+    // Reset submenu state when the card is opened, not while it is closing.
+    // Changing nested AnimatedVisibility targets during the parent's exit makes Compose
+    // wait for the child collapse first, producing a visibly sequential close animation.
     LaunchedEffect(visible) {
-        if (!visible) {
+        if (visible) {
             isAiModeExpanded = false
             isTypeProblemInputVisible = false
             typedProblemText = ""
