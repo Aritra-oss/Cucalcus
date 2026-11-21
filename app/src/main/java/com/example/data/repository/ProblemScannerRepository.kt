@@ -14,6 +14,9 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.ThinkingLevel
+import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.ai.type.thinkingConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -71,6 +74,14 @@ class FirebaseProblemScannerRepository(
 
         Firebase.ai.generativeModel(
             modelName = "gemini-3.8-flash",
+            generationConfig = generationConfig {
+                // Gemini 3.8 Flash defaults to HIGH thinking. MEDIUM is
+                // sufficient for educational calculator tasks and reduces latency.
+                thinkingConfig = thinkingConfig {
+                    thinkingLevel = ThinkingLevel.MEDIUM
+                }
+                maxOutputTokens = 2048
+            },
             systemInstruction = content {
                 text(MATH_ONLY_SYSTEM_INSTRUCTION)
             }
@@ -142,7 +153,7 @@ class FirebaseProblemScannerRepository(
 
         val accumulated = StringBuilder()
 
-        withTimeout(60_000L) {
+        withTimeout(45_000L) {
             model.generateContentStream(inputContent).collect { chunk ->
 
                 val part = chunk.text.orEmpty()
@@ -185,10 +196,10 @@ class FirebaseProblemScannerRepository(
             // Handle it first, otherwise it is rethrown and the UI remains
             // stuck in the loading state without receiving an Error event.
             is TimeoutCancellationException -> {
-                Log.e(TAG, "AI Mode timed out after 60 seconds.", throwable)
+                Log.e(TAG, "AI Mode timed out after 45 seconds.", throwable)
                 emit(
                     ScanProblemStreamEvent.Error(
-                        "AI Mode timed out after 60 seconds. Check your connection and try again."
+                        "AI Mode took too long to respond. Please check your connection and try again."
                     )
                 )
             }
