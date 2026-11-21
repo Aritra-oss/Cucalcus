@@ -783,7 +783,7 @@ if (isPreparingSettings) {
             }
         }
     }
-
+    }
     if (showCustomColorDialog) {
         CustomColorPickerDialog(
             initialArgb = settings.customAccentArgb,
