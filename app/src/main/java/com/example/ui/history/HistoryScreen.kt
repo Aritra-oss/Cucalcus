@@ -384,6 +384,7 @@ fun HistoryScreen(
         )
     }
 }
+}
 @Composable
 private fun HistoryEntryCard(
     item: CalculationHistoryEntity,
