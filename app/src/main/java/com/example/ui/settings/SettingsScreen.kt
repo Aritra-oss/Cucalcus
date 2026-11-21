@@ -159,7 +159,7 @@ fun SettingsScreen(
     val reducedMotion = CucalcusTheme.reducedMotion
 
     LaunchedEffect(Unit) {
-    delay(900)
+    delay(500)
 
     if (!BrandIconBitmapCache.isWarmedUp) {
         BrandIconBitmapCache.warmUp(context)
