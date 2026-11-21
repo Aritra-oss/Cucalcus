@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "508412170216",
+    "project_id": "gen-lang-client-0895469536",
+    "storage_bucket": "gen-lang-client-0895469536.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:508412170216:android:31a3b958a5e79199835e5d",
+        "android_client_info": {
+          "package_name": "com.aistudio.cucalcus.swqmtr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzYGAgIQUTWvWQM59Q0dZqortstor9bSo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
