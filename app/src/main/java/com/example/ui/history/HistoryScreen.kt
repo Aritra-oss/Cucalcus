@@ -188,6 +188,9 @@ fun HistoryScreen(
         }
 
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (state.isLoading) {
+                HistoryBodySkeleton(modifier = Modifier.fillMaxSize())
+            } else {
             // Search & Filter Controls
                     Column(
             modifier = Modifier
@@ -344,6 +347,7 @@ fun HistoryScreen(
                         )
                     }
                 }
+            }
             }
         }
     }
