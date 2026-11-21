@@ -95,6 +95,8 @@ jobs:
         run: gradle :app:testDebugUnitTest --no-daemon -Dorg.gradle.workers.max=2
 
       - name: Build Debug APK
+        env:
+          FIREBASE_APPCHECK_DEBUG_TOKEN: ${{ secrets.FIREBASE_APPCHECK_DEBUG_TOKEN }}
         run: gradle :app:assembleDebug --no-daemon -Dorg.gradle.workers.max=2
 
       - name: Upload Debug APK artifact
