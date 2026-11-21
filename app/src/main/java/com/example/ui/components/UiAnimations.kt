@@ -1,5 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -27,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableTransitionState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -117,20 +123,56 @@ fun BouncyPopupMenu(
     borderColor: Color = CucalcusTheme.colors.border,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    if (expanded) {
+    val reducedMotion = CucalcusTheme.reducedMotion
+    val visibilityState = remember { MutableTransitionState(false) }
+
+    LaunchedEffect(expanded) {
+        visibilityState.targetState = expanded
+    }
+
+    // Keep the popup in the composition while it shrinks away; removing Popup immediately
+    // on a close tap would cut off the exit animation and can look like a stuck/stacked menu.
+    if (visibilityState.currentState || visibilityState.targetState) {
         Popup(
             alignment = alignment,
             onDismissRequest = onDismissRequest,
             properties = PopupProperties(focusable = true)
         ) {
-            Surface(
-                shape = shape,
-                color = containerColor,
-                border = BorderStroke(1.dp, borderColor),
-                shadowElevation = 10.dp,
-                modifier = modifier
+            AnimatedVisibility(
+                visibleState = visibilityState,
+                enter = if (reducedMotion) {
+                    fadeIn(tween(0))
+                } else {
+                    fadeIn(tween(110, easing = FastOutSlowInEasing)) +
+                        scaleIn(
+                            animationSpec = spring(
+                                dampingRatio = 0.82f,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            initialScale = 0.92f,
+                            transformOrigin = transformOrigin
+                        )
+                },
+                exit = if (reducedMotion) {
+                    fadeOut(tween(0))
+                } else {
+                    fadeOut(tween(90, easing = FastOutSlowInEasing)) +
+                        scaleOut(
+                            animationSpec = tween(105, easing = FastOutSlowInEasing),
+                            targetScale = 0.96f,
+                            transformOrigin = transformOrigin
+                        )
+                }
             ) {
-                Column(content = content)
+                Surface(
+                    shape = shape,
+                    color = containerColor,
+                    border = BorderStroke(1.dp, borderColor),
+                    shadowElevation = 10.dp,
+                    modifier = modifier
+                ) {
+                    Column(content = content)
+                }
             }
         }
     }
