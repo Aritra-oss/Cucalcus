@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -86,6 +87,33 @@ class FirebaseProblemScannerRepository(
             }
         )
     }
+
+    // Lightweight fallback for temporary Gemini 3.8 Flash capacity errors.
+    private val fallbackModel by lazy {
+        val ctx = requireNotNull(appContext) {
+            "AI Mode requires an application Context."
+        }
+        val firebaseApp = ensureFirebaseInitialized(ctx)
+            ?: throw IllegalStateException(
+                "Firebase is not configured for this app. Check app/google-services.json and rebuild."
+            )
+        check(firebaseApp.name == FirebaseApp.DEFAULT_APP_NAME) {
+            "The default Firebase app was not initialized."
+        }
+        Firebase.ai.generativeModel(
+            modelName = "gemini-3.5-flash-lite",
+            generationConfig = generationConfig {
+                thinkingConfig = thinkingConfig {
+                    thinkingLevel = ThinkingLevel.LOW
+                }
+                maxOutputTokens = 2048
+            },
+            systemInstruction = content {
+                text(MATH_ONLY_SYSTEM_INSTRUCTION)
+            }
+        )
+    }
+
 
     override fun solveProblemFromBitmapStream(
         bitmap: Bitmap
@@ -156,12 +184,39 @@ class FirebaseProblemScannerRepository(
         // try/catch block. withTimeoutOrNull returns null only for this
         // timeout; cancellation from the user/screen still propagates.
         val completedInTime = withTimeoutOrNull(45_000L) {
-            model.generateContentStream(inputContent).collect { chunk ->
-                val part = chunk.text.orEmpty()
-                if (part.isNotEmpty()) {
-                    accumulated.append(part)
+            var lastFailure: Exception? = null
+
+            // Retry transient capacity errors, then use a lighter supported model.
+            for (attempt in 0..2) {
+                accumulated.setLength(0)
+                val activeModel = if (attempt < 2) model else fallbackModel
+
+                try {
+                    activeModel.generateContentStream(inputContent).collect { chunk ->
+                        val part = chunk.text.orEmpty()
+                        if (part.isNotEmpty()) accumulated.append(part)
+                    }
+                    lastFailure = null
+                    break
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    lastFailure = failure
+                    val details = generateSequence(failure as Throwable?) { it.cause }
+                        .joinToString(" ") { it.message.orEmpty() }
+                        .lowercase()
+                    val isTemporaryCapacityFailure = listOf(
+                        "503", "unavailable", "high demand", "overloaded",
+                        "resource_exhausted", "temporarily unavailable"
+                    ).any { it in details }
+
+                    if (!isTemporaryCapacityFailure || attempt == 2) throw failure
+                    Log.w(TAG, "Gemini capacity issue; retrying with next model.", failure)
+                    delay(if (attempt == 0) 900L else 300L)
                 }
             }
+
+            lastFailure?.let { throw it }
             true
         } ?: false
 
