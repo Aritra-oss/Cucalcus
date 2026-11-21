@@ -87,7 +87,7 @@ class FirebaseProblemScannerRepository(
         )
     }
 
-    // Lightweight fallback for temporary Gemini 3.8 Flash capacity errors.
+    // Alternate free-tier model used if Flash-Lite is rate-limited or temporarily unavailable.
     private val fallbackModel by lazy {
         val ctx = requireNotNull(appContext) {
             "AI Mode requires an application Context."
@@ -188,7 +188,7 @@ class FirebaseProblemScannerRepository(
             // Retry transient capacity errors, then use a lighter supported model.
             for (attempt in 0..2) {
                 accumulated.setLength(0)
-                val activeModel = if (attempt < 2) model else fallbackModel
+                val activeModel = if (attempt == 0) model else fallbackModel
 
                 try {
                     activeModel.generateContentStream(inputContent).collect { chunk ->
@@ -204,12 +204,23 @@ class FirebaseProblemScannerRepository(
                     val details = generateSequence(failure as Throwable?) { it.cause }
                         .joinToString(" ") { it.message.orEmpty() }
                         .lowercase()
-                    val isTemporaryCapacityFailure = listOf(
+                    val isQuotaFailure = listOf(
+                        "quota", "resource_exhausted", "rate limit",
+                        "too many requests", "429"
+                    ).any { it in details }
+                    val isTemporaryCapacityFailure = isQuotaFailure || listOf(
                         "503", "unavailable", "high demand", "overloaded",
-                        "resource_exhausted", "temporarily unavailable"
+                        "temporarily unavailable"
                     ).any { it in details }
 
-                    if (!isTemporaryCapacityFailure || attempt == 2) throw failure
+                    // Do not waste retries against a model whose quota is exhausted.
+                    // Move directly to the alternate model; if its quota is also exhausted,
+                    // surface a clear message instead of looping.
+                    if (
+                        !isTemporaryCapacityFailure ||
+                        attempt == 2 ||
+                        (isQuotaFailure && attempt > 0)
+                    ) throw failure
                     Log.w(TAG, "Gemini capacity issue; retrying with next model.", failure)
                     delay(if (attempt == 0) 900L else 300L)
                 }
@@ -256,9 +267,19 @@ class FirebaseProblemScannerRepository(
         if (throwable is CancellationException) throw throwable
 
         Log.e(TAG, "AI Mode problem solve failed", throwable)
-        val message = throwable.localizedMessage?.takeIf {
-            it.isNotBlank()
-        } ?: "Could not solve problem in AI Mode."
+        val errorDetails = generateSequence(throwable as Throwable?) { it.cause }
+            .joinToString(" ") { it.message.orEmpty() }
+            .lowercase()
+        val isQuotaFailure = listOf(
+            "quota", "resource_exhausted", "rate limit",
+            "too many requests", "429"
+        ).any { it in errorDetails }
+        val message = if (isQuotaFailure) {
+            "AI free-tier limit reached for now. Please try again after the quota resets."
+        } else {
+            throwable.localizedMessage?.takeIf { it.isNotBlank() }
+                ?: "Could not solve problem in AI Mode."
+        }
 
         emit(ScanProblemStreamEvent.Error(message))
     }
