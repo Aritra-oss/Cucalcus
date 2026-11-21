@@ -73,7 +73,7 @@ class FirebaseProblemScannerRepository(
         }
 
         Firebase.ai.generativeModel(
-            modelName = "gemini-3.8-flash",
+            modelName = "gemini-3.5-flash-lite",
             generationConfig = generationConfig {
                 // Use LOW thinking for short educational answers to reduce latency.
                 thinkingConfig = thinkingConfig {
@@ -100,7 +100,7 @@ class FirebaseProblemScannerRepository(
             "The default Firebase app was not initialized."
         }
         Firebase.ai.generativeModel(
-            modelName = "gemini-3.5-flash-lite",
+            modelName = "gemini-3.8-flash",
             generationConfig = generationConfig {
                 thinkingConfig = thinkingConfig {
                     thinkingLevel = ThinkingLevel.LOW
