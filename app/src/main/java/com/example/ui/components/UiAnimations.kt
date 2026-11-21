@@ -133,31 +133,23 @@ fun BouncyPopupMenu(
             val transition = rememberTransition(expandedState, label = "bouncy_popup_transition")
             val scale by transition.animateFloat(
                 transitionSpec = {
-                    if (reducedMotion) {
-                        tween(0)
-                    } else if (targetState) {
-                        spring(
-                            dampingRatio = 0.80f,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    } else {
-                        tween(140, easing = FastOutSlowInEasing)
-                    }
+                    if (reducedMotion) tween(0)
+                    else tween(
+                        durationMillis = if (targetState) 105 else 75,
+                        easing = FastOutSlowInEasing
+                    )
                 },
                 label = "bouncy_popup_scale"
             ) { isOpen ->
-                if (isOpen) 1f else 0.88f
+                if (isOpen) 1f else 0.96f
             }
             val alpha by transition.animateFloat(
                 transitionSpec = {
-                    if (reducedMotion) {
-                        tween(0)
-                    } else {
-                        tween(
-                            durationMillis = if (targetState) 180 else 120,
-                            easing = FastOutSlowInEasing
-                        )
-                    }
+                    if (reducedMotion) tween(0)
+                    else tween(
+                        durationMillis = if (targetState) 95 else 65,
+                        easing = FastOutSlowInEasing
+                    )
                 },
                 label = "bouncy_popup_alpha"
             ) { isOpen ->
