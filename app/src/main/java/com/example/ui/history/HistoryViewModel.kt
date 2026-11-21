@@ -23,7 +23,8 @@ data class HistoryUiState(
     val entries: List<CalculationHistoryEntity> = emptyList(),
     val searchQuery: String = "",
     val sortOrder: HistorySortOrder = HistorySortOrder.RECENT,
-    val favoritesOnly: Boolean = false
+    val favoritesOnly: Boolean = false,
+    val isLoading: Boolean = true
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,7 +58,8 @@ class HistoryViewModel(
             entries = filtered,
             searchQuery = query,
             sortOrder = sort,
-            favoritesOnly = favOnly
+            favoritesOnly = favOnly,
+            isLoading = false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HistoryUiState())
 
