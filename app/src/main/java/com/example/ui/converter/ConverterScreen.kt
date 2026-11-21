@@ -189,9 +189,10 @@ fun ConverterScreen(
             }
         }
 
-        val showSkeleton = state.activeTab == ConverterTab.CURRENCY &&
-            state.isLoadingRates &&
-            state.ratesSnapshot == null
+        val showSkeleton = state.isInitialising ||
+            (state.activeTab == ConverterTab.CURRENCY &&
+                state.isLoadingRates &&
+                state.ratesSnapshot == null)
         val tabAnimMs = if (reducedMotion) 0 else 220
 
         AnimatedContent(
