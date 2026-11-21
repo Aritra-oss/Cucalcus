@@ -264,48 +264,24 @@ fun InlineCucalcusMenuCard(
         enter = if (reducedMotion) {
             fadeIn(tween(0))
         } else {
-            expandVertically(
-                animationSpec = spring(
-                    dampingRatio = 0.88f,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                expandFrom = Alignment.Top
-            ) + fadeIn(
-                animationSpec = spring(
-                    dampingRatio = 0.90f,
-                    stiffness = Spring.StiffnessMediumLow
+            // Keep the popup animation on the graphics layer. Animating its
+            // measured height causes repeated full-card relayouts and feels sticky.
+            fadeIn(animationSpec = tween(170)) +
+                scaleIn(
+                    animationSpec = tween(190),
+                    initialScale = 0.96f,
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                 )
-            ) + scaleIn(
-                animationSpec = spring(
-                    dampingRatio = 0.86f,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                initialScale = 0.965f,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-            )
         },
         exit = if (reducedMotion) {
             fadeOut(tween(0))
         } else {
-            shrinkVertically(
-                animationSpec = spring(
-                    dampingRatio = 0.90f,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                shrinkTowards = Alignment.Top
-            ) + fadeOut(
-                animationSpec = spring(
-                    dampingRatio = 0.92f,
-                    stiffness = Spring.StiffnessMediumLow
+            fadeOut(animationSpec = tween(125)) +
+                scaleOut(
+                    animationSpec = tween(145),
+                    targetScale = 0.985f,
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                 )
-            ) + scaleOut(
-                animationSpec = spring(
-                    dampingRatio = 0.90f,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                targetScale = 0.985f,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-            )
         },
         modifier = modifier
     ) {
