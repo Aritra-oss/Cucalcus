@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.tools.ToolCategory
 import com.example.domain.tools.ToolId
 import com.example.ui.components.SwissScreenTopBar
+import com.example.ui.components.ToolsBodySkeleton
 import com.example.ui.components.SwissSectionHeader
 import com.example.ui.theme.CucalcusTheme
 
@@ -56,6 +57,7 @@ import com.example.ui.theme.CucalcusTheme
 fun ToolsScreen(viewModel: ToolsViewModel) {
     val activeTool by viewModel.selectedTool.collectAsStateWithLifecycle()
     val recentTools by viewModel.recentTools.collectAsStateWithLifecycle()
+    val isLoadingRecentTools by viewModel.isLoadingRecentTools.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
     val reducedMotion = CucalcusTheme.reducedMotion
 
@@ -119,13 +121,16 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
                     tag = "23 Precision Utilities"
                 )
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                if (isLoadingRecentTools) {
+                    ToolsBodySkeleton(modifier = Modifier.fillMaxSize())
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                 if (recentTools.isNotEmpty()) {
                     SwissSectionHeader(
                         title = "Quick Tools",
@@ -170,6 +175,7 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
                                 onClick = { viewModel.openTool(tool) }
                             )
                         }
+                    }
                     }
                     }
                 }
