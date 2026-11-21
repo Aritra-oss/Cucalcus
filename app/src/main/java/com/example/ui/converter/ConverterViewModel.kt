@@ -29,6 +29,7 @@ enum class ConverterTab(val label: String) {
 
 data class ConverterUiState(
     val activeTab: ConverterTab = ConverterTab.UNITS,
+    val isInitialising: Boolean = true,
     // Units state
     val selectedCategory: UnitCategory = UnitCategory.LENGTH,
     val fromUnit: UnitDefinition = UnitConverterEngine.unitsByCategory[UnitCategory.LENGTH]!![0],
@@ -76,7 +77,8 @@ class ConverterViewModel(
             currencyOutputText = currOut,
             exchangeRateDisplay = rateStr,
             recentUnitConversions = recentUnits,
-            recentCurrencyConversions = recentCurrencies
+            recentCurrencyConversions = recentCurrencies,
+            isInitialising = false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConverterUiState())
 
