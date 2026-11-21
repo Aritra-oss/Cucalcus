@@ -7,7 +7,9 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.example.platform.ensureFirebaseInitialized
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
@@ -37,10 +39,17 @@ interface ProblemScannerRepository {
     fun solveProblemFromTextStream(problemText: String): Flow<ScanProblemStreamEvent>
 }
 
-class FirebaseProblemScannerRepository : ProblemScannerRepository {
+class FirebaseProblemScannerRepository(
+    private val appContext: Context? = null
+) : ProblemScannerRepository {
 
     // Free-tier Gemini 3.x Flash model via Firebase AI Logic (no billing required).
     private val model by lazy {
+        appContext?.let { ctx ->
+            if (FirebaseApp.getApps(ctx).isEmpty()) {
+                ensureFirebaseInitialized(ctx)
+            }
+        }
         Firebase.ai.generativeModel(
             modelName = "gemini-3.8-flash",
             systemInstruction = content {

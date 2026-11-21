@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -29,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -38,9 +40,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.example.ui.theme.CucalcusTheme
@@ -133,20 +137,27 @@ fun BouncyPopupMenu(
                         tween(0)
                     } else if (targetState) {
                         spring(
-                            dampingRatio = 0.56f,
+                            dampingRatio = 0.80f,
                             stiffness = Spring.StiffnessMediumLow
                         )
                     } else {
-                        tween(130)
+                        tween(140, easing = FastOutSlowInEasing)
                     }
                 },
                 label = "bouncy_popup_scale"
             ) { isOpen ->
-                if (isOpen) 1f else 0.80f
+                if (isOpen) 1f else 0.88f
             }
             val alpha by transition.animateFloat(
                 transitionSpec = {
-                    if (reducedMotion) tween(0) else tween(if (targetState) 140 else 110)
+                    if (reducedMotion) {
+                        tween(0)
+                    } else {
+                        tween(
+                            durationMillis = if (targetState) 180 else 120,
+                            easing = FastOutSlowInEasing
+                        )
+                    }
                 },
                 label = "bouncy_popup_alpha"
             ) { isOpen ->
@@ -173,7 +184,7 @@ fun BouncyPopupMenu(
 }
 
 /**
- * Modal dialog with a smooth spring-bounce entrance animation.
+ * Modal dialog with a flicker-free, silky spring entrance animation.
  */
 @Composable
 fun BouncyDialog(
@@ -188,16 +199,16 @@ fun BouncyDialog(
 ) {
     val colors = CucalcusTheme.colors
     val reducedMotion = CucalcusTheme.reducedMotion
-    val scale = remember { Animatable(if (reducedMotion) 1f else 0.82f) }
+    val scale = remember { Animatable(if (reducedMotion) 1f else 0.90f) }
     val alpha = remember { Animatable(if (reducedMotion) 1f else 0f) }
 
     LaunchedEffect(Unit) {
         if (!reducedMotion) {
-            launch { alpha.animateTo(1f, tween(160)) }
+            launch { alpha.animateTo(1f, tween(210, easing = FastOutSlowInEasing)) }
             scale.animateTo(
                 targetValue = 1f,
                 animationSpec = spring(
-                    dampingRatio = 0.58f,
+                    dampingRatio = 0.80f,
                     stiffness = Spring.StiffnessMediumLow
                 )
             )
@@ -208,6 +219,11 @@ fun BouncyDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        // Disable platform window animation so Compose's graphicsLayer owns 100% of dialog open motion cleanly.
+        val dialogWindowProvider = LocalView.current.parent as? DialogWindowProvider
+        SideEffect {
+            dialogWindowProvider?.window?.setWindowAnimations(0)
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()

@@ -13,9 +13,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -60,6 +64,7 @@ import com.example.ui.converter.ConverterScreen
 import com.example.ui.converter.ConverterViewModel
 import com.example.ui.history.HistoryScreen
 import com.example.ui.history.HistoryViewModel
+import com.example.ui.settings.BrandIconBitmapCache
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.settings.SettingsViewModel
 import com.example.ui.theme.CucalcusTheme
@@ -97,6 +102,9 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(settings.backgroundImagePath) {
                 blurredBgBitmap = app.backgroundImageManager.loadLightlyBlurredBitmap(settings.backgroundImagePath)
                 isBgReady = true
+            }
+            LaunchedEffect(Unit) {
+                BrandIconBitmapCache.warmUp(applicationContext)
             }
 
             CucalcusTheme(settings = settings) {
@@ -227,7 +235,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val animMs = if (reducedMotion) 0 else 120
+                val enterMs = if (reducedMotion) 0 else 280
+                val exitMs = if (reducedMotion) 0 else 200
+                val enterSpec = tween<Float>(enterMs, easing = FastOutSlowInEasing)
+                val exitSpec = tween<Float>(exitMs, easing = FastOutSlowInEasing)
 
                 val navActions = remember(currentRoute, isMenuExpanded, navigateTo) {
                     CucalcusNavActions(
@@ -283,10 +294,38 @@ class MainActivity : ComponentActivity() {
                                 NavHost(
                                     navController = navController,
                                     startDestination = CucalcusRoute.CALCULATOR.route,
-                                    enterTransition = { fadeIn(tween(animMs)) },
-                                    exitTransition = { fadeOut(tween(animMs)) },
-                                    popEnterTransition = { fadeIn(tween(animMs)) },
-                                    popExitTransition = { fadeOut(tween(animMs)) }
+                                    enterTransition = {
+                                        if (reducedMotion) {
+                                            fadeIn(tween(0))
+                                        } else {
+                                            fadeIn(enterSpec) +
+                                                scaleIn(initialScale = 0.965f, animationSpec = enterSpec) +
+                                                slideInVertically(
+                                                    animationSpec = tween(enterMs, easing = FastOutSlowInEasing)
+                                                ) { it / 32 }
+                                        }
+                                    },
+                                    exitTransition = {
+                                        if (reducedMotion) {
+                                            fadeOut(tween(0))
+                                        } else {
+                                            fadeOut(exitSpec) + scaleOut(targetScale = 0.985f, animationSpec = exitSpec)
+                                        }
+                                    },
+                                    popEnterTransition = {
+                                        if (reducedMotion) {
+                                            fadeIn(tween(0))
+                                        } else {
+                                            fadeIn(enterSpec) + scaleIn(initialScale = 0.975f, animationSpec = enterSpec)
+                                        }
+                                    },
+                                    popExitTransition = {
+                                        if (reducedMotion) {
+                                            fadeOut(tween(0))
+                                        } else {
+                                            fadeOut(exitSpec) + scaleOut(targetScale = 0.965f, animationSpec = exitSpec)
+                                        }
+                                    }
                                 ) {
                                     composable(CucalcusRoute.CALCULATOR.route) {
                                         CalculatorScreen(

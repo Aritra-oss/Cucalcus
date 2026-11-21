@@ -96,12 +96,6 @@ fun HistoryScreen(
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
-    var isContentReady by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(80)
-        isContentReady = true
-    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -193,17 +187,8 @@ fun HistoryScreen(
             }
         }
 
-        AnimatedContent(
-            targetState = isContentReady,
-            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
-            label = "history_skeleton_transition",
-            modifier = Modifier.weight(1f)
-        ) { ready ->
-            if (!ready) {
-                HistoryBodySkeleton()
-            } else {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Search & Filter Controls
+        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // Search & Filter Controls
                     Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -357,13 +342,10 @@ fun HistoryScreen(
                             onToggleFavorite = { viewModel.toggleFavorite(item) },
                             onDelete = { viewModel.deleteEntry(item.id) }
                         )
-                        }
                     }
                 }
             }
         }
-    }
-}
     }
 
     if (showClearConfirm) {

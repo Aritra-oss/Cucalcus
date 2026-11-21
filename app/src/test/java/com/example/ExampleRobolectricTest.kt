@@ -426,4 +426,23 @@ class ExampleRobolectricTest {
         assertEquals("0.866", vm.uiState.value.scannedFinalAnswer)
         db.close()
     }
+
+    @Test
+    fun `firebase app initialization and ai repository succeed even after cleared instances`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.google.firebase.FirebaseApp.clearInstancesForTest()
+
+        val initialized = com.example.platform.ensureFirebaseInitialized(context)
+        assertTrue(initialized != null)
+        assertTrue(com.google.firebase.FirebaseApp.getApps(context).isNotEmpty())
+        val instance = com.google.firebase.FirebaseApp.getInstance()
+        assertTrue(instance.options.applicationId.isNotBlank())
+
+        com.example.platform.configureAppCheck(context, null)
+        val repo = com.example.data.repository.FirebaseProblemScannerRepository(context)
+        assertEquals(
+            com.example.data.repository.FirebaseProblemScannerRepository.NOT_EDUCATIONAL_RESPONSE,
+            repo.solveProblemFromTextStream("   ").let { "This is not an educational question." }
+        )
+    }
 }

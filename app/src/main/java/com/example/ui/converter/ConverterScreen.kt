@@ -98,12 +98,7 @@ fun ConverterScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
-    var isContentReady by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(80)
-        isContentReady = true
-    }
+    val reducedMotion = CucalcusTheme.reducedMotion
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -194,12 +189,16 @@ fun ConverterScreen(
             }
         }
 
-        val showSkeleton = !isContentReady ||
-            (state.activeTab == ConverterTab.CURRENCY && state.isLoadingRates && state.ratesSnapshot == null)
+        val showSkeleton = state.activeTab == ConverterTab.CURRENCY &&
+            state.isLoadingRates &&
+            state.ratesSnapshot == null
+        val tabAnimMs = if (reducedMotion) 0 else 220
 
         AnimatedContent(
             targetState = Pair(showSkeleton, state.activeTab),
-            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            transitionSpec = {
+                fadeIn(tween(tabAnimMs)) togetherWith fadeOut(tween((tabAnimMs * 0.75f).toInt()))
+            },
             label = "converter_skeleton_transition",
             modifier = Modifier.weight(1f)
         ) { (skeleton, tab) ->

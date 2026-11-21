@@ -2,9 +2,12 @@ package com.example.ui.tools
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AccountBalance
@@ -34,14 +36,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,79 +50,82 @@ import com.example.domain.tools.ToolCategory
 import com.example.domain.tools.ToolId
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.components.SwissSectionHeader
-import com.example.ui.components.ToolsBodySkeleton
 import com.example.ui.theme.CucalcusTheme
-import kotlinx.coroutines.delay
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel) {
     val activeTool by viewModel.selectedTool.collectAsStateWithLifecycle()
     val recentTools by viewModel.recentTools.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
+    val reducedMotion = CucalcusTheme.reducedMotion
 
-    if (activeTool != null) {
-        val tool = activeTool!!
-        BackHandler { viewModel.closeTool() }
+    BackHandler(enabled = activeTool != null) { viewModel.closeTool() }
 
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            SwissScreenTopBar(
-                title = tool.title,
-                tag = tool.category.title
+    AnimatedContent(
+        targetState = activeTool,
+        transitionSpec = {
+            if (reducedMotion) {
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+            } else if (targetState != null) {
+                (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 5 } +
+                    fadeIn(tween(240, easing = FastOutSlowInEasing))) togetherWith
+                    (slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) { -it / 8 } +
+                        fadeOut(tween(180, easing = FastOutSlowInEasing)))
+            } else {
+                (slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) { -it / 6 } +
+                    fadeIn(tween(240, easing = FastOutSlowInEasing))) togetherWith
+                    (slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) { it / 5 } +
+                        fadeOut(tween(180, easing = FastOutSlowInEasing)))
+            }
+        },
+        label = "tool_detail_transition",
+        modifier = Modifier.fillMaxSize()
+    ) { tool ->
+        if (tool != null) {
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                IconButton(
-                    onClick = viewModel::closeTool,
-                    modifier = Modifier.testTag("tool_back_button")
+                SwissScreenTopBar(
+                    title = tool.title,
+                    tag = tool.category.title
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back to tools",
-                        tint = colors.accent
-                    )
+                    IconButton(
+                        onClick = viewModel::closeTool,
+                        modifier = Modifier.testTag("tool_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back to tools",
+                            tint = colors.accent
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
+                    ToolWorkspaceContent(toolId = tool)
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
+        } else {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
-                ToolWorkspaceContent(toolId = tool)
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    } else {
-        var isDirectoryReady by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) {
-            delay(80)
-            isDirectoryReady = true
-        }
+                SwissScreenTopBar(
+                    title = "Mathematical Tools",
+                    tag = "23 Precision Utilities"
+                )
 
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            SwissScreenTopBar(
-                title = "Mathematical Tools",
-                tag = "23 Precision Utilities"
-            )
-
-            AnimatedContent(
-                targetState = isDirectoryReady,
-                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
-                label = "tools_skeleton_transition",
-                modifier = Modifier.weight(1f)
-            ) { ready ->
-                if (!ready) {
-                    ToolsBodySkeleton()
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                 if (recentTools.isNotEmpty()) {
                     SwissSectionHeader(
                         title = "Quick Tools",
@@ -169,12 +171,11 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
                             )
                         }
                     }
+                    }
                 }
             }
         }
     }
-}
-}
 }
 
 @Composable

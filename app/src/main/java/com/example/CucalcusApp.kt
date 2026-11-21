@@ -37,7 +37,7 @@ class CucalcusApp : Application() {
         private set
 
     val problemScannerRepository: ProblemScannerRepository by lazy {
-        FirebaseProblemScannerRepository()
+        FirebaseProblemScannerRepository(applicationContext)
     }
 
     override fun onCreate() {

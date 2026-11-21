@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import com.example.BuildConfig
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.appcheck.recaptcha.RecaptchaAppCheckProviderFactory
@@ -16,16 +17,77 @@ private const val DEBUG_STORE_PREFIX = "com.google.firebase.appcheck.debug.store
 private const val DEBUG_SECRET_KEY = "com.google.firebase.appcheck.debug.DEBUG_SECRET"
 private const val RECAPTCHA_SITE_KEY_RES = "recaptcha_site_key"
 
+/**
+ * Guarantees that the default [FirebaseApp] is initialized even if [FirebaseInitProvider]
+ * or `FirebaseOptions.fromResource` could not match the resource package automatically.
+ */
+fun ensureFirebaseInitialized(context: Context): FirebaseApp? {
+    val appCtx = context.applicationContext ?: context
+    FirebaseApp.getApps(appCtx).firstOrNull()?.let { return it }
+
+    // 1. Standard google-services initialization path
+    runCatching { FirebaseApp.initializeApp(appCtx) }.getOrNull()?.let { return it }
+    FirebaseApp.getApps(appCtx).firstOrNull()?.let { return it }
+
+    // 2. Explicit resource lookup across possible package namespaces
+    val pkgCandidates = listOf(
+        appCtx.packageName,
+        context.packageName,
+        appCtx.applicationInfo.packageName,
+        "com.example"
+    ).distinct()
+
+    fun resolveStringResource(key: String): String? {
+        for (pkg in pkgCandidates) {
+            val id = appCtx.resources.getIdentifier(key, "string", pkg)
+            if (id != 0) {
+                val value = runCatching { appCtx.getString(id) }.getOrNull()?.trim()
+                if (!value.isNullOrEmpty()) return value
+            }
+        }
+        return null
+    }
+
+    val googleAppId = resolveStringResource("google_app_id")
+    val apiKey = resolveStringResource("google_api_key")
+    val projectId = resolveStringResource("project_id")
+    val gcmSenderId = resolveStringResource("gcm_defaultSenderId")
+    val storageBucket = resolveStringResource("google_storage_bucket")
+
+    if (googleAppId.isNullOrBlank() || apiKey.isNullOrBlank()) {
+        Log.e(
+            TAG,
+            "Firebase resource lookup missing google_app_id or google_api_key (packages checked: $pkgCandidates)"
+        )
+        return null
+    }
+
+    val optionsBuilder = FirebaseOptions.Builder()
+        .setApplicationId(googleAppId)
+        .setApiKey(apiKey)
+    if (!projectId.isNullOrBlank()) optionsBuilder.setProjectId(projectId)
+    if (!gcmSenderId.isNullOrBlank()) optionsBuilder.setGcmSenderId(gcmSenderId)
+    if (!storageBucket.isNullOrBlank()) optionsBuilder.setStorageBucket(storageBucket)
+
+    return runCatching {
+        FirebaseApp.initializeApp(appCtx, optionsBuilder.build())
+    }.onFailure { err ->
+        Log.e(TAG, "Explicit FirebaseApp.initializeApp(context, options) failed", err)
+    }.getOrNull() ?: FirebaseApp.getApps(appCtx).firstOrNull()
+}
+
 fun configureAppCheck(context: Context, intent: Intent?) {
     try {
-        if (FirebaseApp.getApps(context).isEmpty()) {
-            FirebaseApp.initializeApp(context)
+        val firebaseApp = ensureFirebaseInitialized(context)
+        if (firebaseApp == null) {
+            Log.e(TAG, "Default FirebaseApp could not be initialized; skipping App Check setup.")
+            return
         }
 
         if (BuildConfig.DEBUG) {
             val debugToken = intent?.getStringExtra(DEBUG_TOKEN_EXTRA)
             if (!debugToken.isNullOrEmpty()) {
-                val persistenceKey = FirebaseApp.getInstance().persistenceKey
+                val persistenceKey = firebaseApp.persistenceKey
                 val prefs = context.getSharedPreferences(
                     "$DEBUG_STORE_PREFIX$persistenceKey",
                     Context.MODE_PRIVATE
@@ -39,20 +101,20 @@ fun configureAppCheck(context: Context, intent: Intent?) {
                 Log.w(TAG, "No debug token found in Intent extra.")
             }
 
-            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+            FirebaseAppCheck.getInstance(firebaseApp).installAppCheckProviderFactory(
                 DebugAppCheckProviderFactory.getInstance()
             )
             Log.d(TAG, "DebugAppCheckProviderFactory installed.")
         } else {
-            val resId = context.resources.getIdentifier(
-                RECAPTCHA_SITE_KEY_RES,
-                "string",
-                context.packageName
-            )
+            val resId = listOf(context.packageName, "com.example")
+                .distinct()
+                .firstNotNullOfOrNull { pkg ->
+                    context.resources.getIdentifier(RECAPTCHA_SITE_KEY_RES, "string", pkg).takeIf { it != 0 }
+                } ?: 0
             if (resId != 0) {
                 val siteKey = context.getString(resId)
                 if (siteKey.isNotBlank()) {
-                    FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    FirebaseAppCheck.getInstance(firebaseApp).installAppCheckProviderFactory(
                         RecaptchaAppCheckProviderFactory.getInstance(siteKey)
                     )
                     Log.d(TAG, "RecaptchaAppCheckProviderFactory installed.")

@@ -147,7 +147,6 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     var selectedFilter by remember { mutableStateOf(SettingsFilter.ALL) }
-    var isContentReady by remember { mutableStateOf(BrandIconBitmapCache.isWarmedUp) }
     var showCustomColorDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
@@ -157,11 +156,9 @@ fun SettingsScreen(
     val bodyScrollState = rememberScrollState()
     val reducedMotion = CucalcusTheme.reducedMotion
 
-    LaunchedEffect(isContentReady) {
-        if (!isContentReady) {
+    LaunchedEffect(Unit) {
+        if (!BrandIconBitmapCache.isWarmedUp) {
             BrandIconBitmapCache.warmUp(context)
-            delay(80)
-            isContentReady = true
         }
     }
 
@@ -257,20 +254,17 @@ fun SettingsScreen(
             }
         }
 
-        val transitionMs = if (reducedMotion) 0 else 140
+        val transitionMs = if (reducedMotion) 0 else 180
         AnimatedContent(
-            targetState = if (isContentReady) selectedFilter else null,
+            targetState = selectedFilter,
             transitionSpec = {
                 fadeIn(tween(transitionMs)) togetherWith fadeOut(tween((transitionMs * 0.7f).toInt()))
             },
             label = "settings_filter_content",
             modifier = Modifier.weight(1f)
         ) { activeFilter ->
-            if (activeFilter == null) {
-                SettingsBodySkeleton()
-            } else {
-                val showAll = activeFilter == SettingsFilter.ALL
-                Column(
+            val showAll = activeFilter == SettingsFilter.ALL
+            Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(bodyScrollState)
@@ -777,7 +771,6 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                }
             }
         }
     }
