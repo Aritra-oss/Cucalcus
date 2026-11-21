@@ -146,6 +146,8 @@ fun SettingsScreen(
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
+    var isPreparingSettings by remember { mutableStateOf(true) }
+
     var selectedFilter by remember { mutableStateOf(SettingsFilter.ALL) }
     var showCustomColorDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
