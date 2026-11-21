@@ -9,8 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,11 +23,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
@@ -36,16 +37,29 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.PlatformTextInputInterceptor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -57,11 +71,15 @@ import com.example.data.preferences.KeypadArrangement
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
 import com.example.domain.math.NumberFormatter
+import com.example.ui.components.BouncySurface
 import com.example.ui.components.CalculatorKeyButton
 import com.example.ui.components.ClipboardMathBanner
+import com.example.ui.components.CucalcusMoreMenuButton
 import com.example.ui.components.KeypadKeyKind
+import com.example.ui.components.bouncyPress
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
+import kotlinx.coroutines.awaitCancellation
 import kotlin.math.abs
 
 @Composable
@@ -121,6 +139,12 @@ fun CalculatorScreen(
                     CalculatorDisplayPanel(
                         state = state,
                         settings = settings,
+                        onCursorPositionChange = viewModel::onCursorPositionChange,
+                        onToggleCursorLock = {
+                            viewModel.toggleCursorLock()
+                            val msg = if (!state.isCursorLocked) "Display cursor locked" else "Display cursor unlocked"
+                            onShowMessage(msg)
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     MemoryControlRow(
@@ -195,6 +219,12 @@ fun CalculatorScreen(
                 CalculatorDisplayPanel(
                     state = state,
                     settings = settings,
+                    onCursorPositionChange = viewModel::onCursorPositionChange,
+                    onToggleCursorLock = {
+                        viewModel.toggleCursorLock()
+                        val msg = if (!state.isCursorLocked) "Display cursor locked" else "Display cursor unlocked"
+                        onShowMessage(msg)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(0.34f)
@@ -273,23 +303,29 @@ private fun CalculatorTopControls(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(start = 18.dp, end = 22.dp, top = 8.dp, bottom = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 text = "CUCALCUS",
                 style = MaterialTheme.typography.labelMedium.copy(
-                    letterSpacing = 2.4.sp,
+                    letterSpacing = 1.8.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = colors.secondaryText
+                color = colors.secondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
-            Surface(
+            BouncySurface(
                 onClick = onToggleAngle,
                 shape = RoundedCornerShape(50),
                 color = colors.cardBg,
@@ -300,17 +336,17 @@ private fun CalculatorTopControls(
                     text = state.angleMode.name,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = colors.accent,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
                 )
             }
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (settings.showScientificToggle) {
-                Surface(
+                BouncySurface(
                     onClick = onToggleSci,
                     shape = RoundedCornerShape(50),
                     color = if (state.isScientificExpanded) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
@@ -339,10 +375,13 @@ private fun CalculatorTopControls(
                     }
                 }
             }
+            val copyInteraction = remember { MutableInteractionSource() }
             IconButton(
                 onClick = onCopy,
+                interactionSource = copyInteraction,
                 modifier = Modifier
                     .size(40.dp)
+                    .bouncyPress(copyInteraction, pressedScale = 0.88f)
                     .testTag("copy_result_button")
             ) {
                 Icon(
@@ -352,10 +391,13 @@ private fun CalculatorTopControls(
                     modifier = Modifier.size(18.dp)
                 )
             }
+            val shareInteraction = remember { MutableInteractionSource() }
             IconButton(
                 onClick = onShare,
+                interactionSource = shareInteraction,
                 modifier = Modifier
                     .size(40.dp)
+                    .bouncyPress(shareInteraction, pressedScale = 0.88f)
                     .testTag("share_calc_button")
             ) {
                 Icon(
@@ -365,19 +407,71 @@ private fun CalculatorTopControls(
                     modifier = Modifier.size(18.dp)
                 )
             }
+            CucalcusMoreMenuButton()
         }
     }
 }
 
+internal class ExpressionFormatTransformation(
+    private val formatMode: NumberFormatMode
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        val formatted = NumberFormatter.formatExpressionNumbers(raw, formatMode)
+        if (formatted == raw) {
+            return TransformedText(AnnotatedString(formatted), OffsetMapping.Identity)
+        }
+        val origToTrans = IntArray(raw.length + 1)
+        val transToOrig = IntArray(formatted.length + 1)
+        var ri = 0
+        var fi = 0
+        while (ri < raw.length && fi < formatted.length) {
+            if (formatted[fi] == ',' && raw[ri] != ',') {
+                transToOrig[fi] = ri
+                fi++
+            } else {
+                origToTrans[ri] = fi
+                transToOrig[fi] = ri
+                ri++
+                fi++
+            }
+        }
+        while (fi < formatted.length) {
+            transToOrig[fi] = raw.length
+            fi++
+        }
+        origToTrans[raw.length] = formatted.length
+        transToOrig[formatted.length] = raw.length
+
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int =
+                origToTrans[offset.coerceIn(0, raw.length)]
+
+            override fun transformedToOriginal(offset: Int): Int =
+                transToOrig[offset.coerceIn(0, formatted.length)]
+        }
+        return TransformedText(AnnotatedString(formatted), mapping)
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun CalculatorDisplayPanel(
     state: CalculatorUiState,
     settings: CucalcusSettings,
+    onCursorPositionChange: (Int) -> Unit,
+    onToggleCursorLock: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = CucalcusTheme.colors
     val displayFont = LocalDisplayFontFamily.current
-    val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(state.isCursorLocked) {
+        if (state.isCursorLocked) {
+            focusManager.clearFocus()
+        }
+    }
 
     val displayText = state.formattedExpression.ifEmpty { "0" }
     val dynamicSp = when {
@@ -387,16 +481,23 @@ private fun CalculatorDisplayPanel(
         else -> 48f
     } * settings.fontScale
 
-    LaunchedEffect(displayText) {
-        scrollState.animateScrollTo(scrollState.maxValue)
-    }
-
     val hasMemory = abs(state.memoryValue) > 1e-14
     val formatTag = when (settings.numberFormatMode) {
         NumberFormatMode.INTERNATIONAL -> "INT"
         NumberFormatMode.INDIAN -> "IND"
         NumberFormatMode.SCIENTIFIC -> "SCI"
     }
+    val visualTransformation = remember(settings.numberFormatMode) {
+        ExpressionFormatTransformation(settings.numberFormatMode)
+    }
+    val suppressImeInterceptor = remember {
+        PlatformTextInputInterceptor { _, _ -> awaitCancellation() }
+    }
+    val clampedCursor = state.cursorPosition.coerceIn(0, state.expression.length)
+    val textFieldValue = TextFieldValue(
+        text = state.expression,
+        selection = TextRange(clampedCursor)
+    )
 
     Surface(
         shape = RoundedCornerShape(22.dp),
@@ -409,7 +510,7 @@ private fun CalculatorDisplayPanel(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.End
         ) {
@@ -423,25 +524,56 @@ private fun CalculatorDisplayPanel(
                     style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
                     color = colors.secondaryText.copy(alpha = 0.8f)
                 )
-                if (hasMemory) {
-                    val formattedMem = NumberFormatter.formatResult(
-                        state.memoryValue,
-                        settings.decimalPrecision.coerceAtMost(4),
-                        NumberFormatMode.INTERNATIONAL
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = colors.accent.copy(alpha = 0.14f),
-                        border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = "M $formattedMem",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = colors.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (hasMemory) {
+                        val formattedMem = NumberFormatter.formatResult(
+                            state.memoryValue,
+                            settings.decimalPrecision.coerceAtMost(4),
+                            NumberFormatMode.INTERNATIONAL
                         )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = colors.accent.copy(alpha = 0.14f),
+                            border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "M $formattedMem",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = colors.accent,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // Corner cursor lock button
+                    BouncySurface(
+                        onClick = onToggleCursorLock,
+                        shape = RoundedCornerShape(50),
+                        color = if (state.isCursorLocked) colors.accent.copy(alpha = 0.18f) else colors.cardBg,
+                        border = BorderStroke(
+                            1.dp,
+                            if (state.isCursorLocked) colors.accent else colors.border
+                        ),
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("display_cursor_lock_button")
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (state.isCursorLocked) Icons.Filled.Lock else Icons.Outlined.LockOpen,
+                                contentDescription = if (state.isCursorLocked) "Unlock display cursor" else "Lock display cursor",
+                                tint = if (state.isCursorLocked) colors.accent else colors.secondaryText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -450,21 +582,48 @@ private fun CalculatorDisplayPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    Text(
-                        text = displayText,
-                        fontFamily = displayFont,
-                        fontSize = dynamicSp.sp,
-                        fontWeight = FontWeight.Light,
-                        color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.55f) else colors.primaryText,
-                        maxLines = 1,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.testTag("calculator_display")
+                InterceptPlatformTextInput(interceptor = suppressImeInterceptor) {
+                    BasicTextField(
+                        value = textFieldValue,
+                        onValueChange = { updated ->
+                            if (!state.isCursorLocked && updated.text == state.expression) {
+                                onCursorPositionChange(updated.selection.end)
+                            }
+                        },
+                        enabled = !state.isCursorLocked,
+                        singleLine = true,
+                        visualTransformation = visualTransformation,
+                        cursorBrush = if (state.isCursorLocked) SolidColor(colors.accent.copy(alpha = 0f)) else SolidColor(colors.accent),
+                        textStyle = TextStyle(
+                            fontFamily = displayFont,
+                            fontSize = dynamicSp.sp,
+                            fontWeight = FontWeight.Light,
+                            color = if (state.expression.isEmpty()) colors.secondaryText.copy(alpha = 0.55f) else colors.primaryText,
+                            textAlign = TextAlign.End
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("calculator_display"),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                if (state.expression.isEmpty()) {
+                                    Text(
+                                        text = "0",
+                                        fontFamily = displayFont,
+                                        fontSize = dynamicSp.sp,
+                                        fontWeight = FontWeight.Light,
+                                        color = colors.secondaryText.copy(alpha = 0.55f),
+                                        maxLines = 1,
+                                        textAlign = TextAlign.End,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
                     )
                 }
 
@@ -525,7 +684,7 @@ private fun MemoryControlRow(
                 "M+" to onAdd,
                 "M−" to onSubtract
             ).forEach { (label, action) ->
-                Surface(
+                BouncySurface(
                     onClick = action,
                     shape = RoundedCornerShape(14.dp),
                     color = colors.cardBg,
@@ -546,7 +705,7 @@ private fun MemoryControlRow(
             }
         }
 
-        Surface(
+        BouncySurface(
             onClick = onBackspace,
             shape = RoundedCornerShape(14.dp),
             color = colors.elevatedSurface,

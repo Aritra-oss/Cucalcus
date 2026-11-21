@@ -87,6 +87,7 @@ fun SwissSectionHeader(
 fun SwissScreenTopBar(
     title: String,
     tag: String? = null,
+    showNavigationMenu: Boolean = true,
     actions: @Composable () -> Unit = {}
 ) {
     val colors = CucalcusTheme.colors
@@ -117,9 +118,12 @@ fun SwissScreenTopBar(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 actions()
+                if (showNavigationMenu) {
+                    CucalcusMoreMenuButton()
+                }
             }
         }
         Spacer(modifier = Modifier.height(12.dp))

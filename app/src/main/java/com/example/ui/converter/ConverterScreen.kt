@@ -101,7 +101,7 @@ fun ConverterScreen(
     var isContentReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        delay(160)
+        delay(80)
         isContentReady = true
     }
 

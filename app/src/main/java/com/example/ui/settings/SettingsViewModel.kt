@@ -33,8 +33,7 @@ class SettingsViewModel(
     private val backgroundImageManager: BackgroundImageManager
 ) : ViewModel() {
 
-    val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, CucalcusSettings())
+    val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsState
 
     val isHapticSupported: Boolean
         get() = hapticManager.isSupported

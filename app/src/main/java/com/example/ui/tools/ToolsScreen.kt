@@ -96,7 +96,7 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
     } else {
         var isDirectoryReady by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
-            delay(160)
+            delay(80)
             isDirectoryReady = true
         }
 

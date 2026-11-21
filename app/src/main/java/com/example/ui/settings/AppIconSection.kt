@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.preferences.AppIconOption
 import com.example.data.preferences.IconCategory
+import com.example.ui.components.BouncySurface
 import com.example.ui.components.SwissSectionHeader
 import com.example.ui.theme.CucalcusTheme
 import kotlinx.coroutines.Dispatchers
@@ -80,10 +81,14 @@ fun AppIconOption.drawableRes(): Int = when (this) {
  */
 object BrandIconBitmapCache {
     private val cache = ConcurrentHashMap<Int, ImageBitmap>()
+    @Volatile
+    var isWarmedUp: Boolean = false
+        private set
 
     fun getOrNull(@DrawableRes resId: Int): ImageBitmap? = cache[resId]
 
     suspend fun warmUp(context: Context) {
+        if (isWarmedUp && cache.size >= AppIconOption.entries.size) return
         withContext(Dispatchers.IO) {
             val res = context.resources
             val opts = BitmapFactory.Options().apply {
@@ -99,6 +104,7 @@ object BrandIconBitmapCache {
                     }
                 }
             }
+            isWarmedUp = true
         }
     }
 }
@@ -140,7 +146,7 @@ fun AppIconSelectorSection(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SwissSectionHeader(
             title = "App Icon Studio",
-            subtitle = "Choose from 15 custom glossy icons (Green Edition is default)"
+            subtitle = "Choose from 15 clean 2D icons (Green Edition is default)"
         )
 
         // Live Launcher Preview Card
@@ -218,7 +224,7 @@ fun AppIconSelectorSection(
                             val isActive = activeIcon == option
                             val cardColor = if (isSelected) colors.accent.copy(alpha = 0.14f) else colors.cardBg
 
-                            Surface(
+                            BouncySurface(
                                 onClick = { pendingSelection = option },
                                 shape = RoundedCornerShape(20.dp),
                                 color = cardColor,

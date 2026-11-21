@@ -111,4 +111,109 @@ class ExampleRobolectricTest {
             assertTrue("Missing ic_adaptive_${option.id}", adaptiveId != 0)
         }
     }
+
+    @Test
+    fun `saved theme and accent load synchronously on cold reopen without default flash`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo1 = com.example.data.preferences.SettingsRepository(context)
+        repo1.updateSettings {
+            it.copy(
+                themeMode = AppThemeMode.MIDNIGHT_NAVY,
+                backgroundPreset = AppBackgroundPreset.EMERALD,
+                accentPreset = AccentPreset.OCEAN_BLUE,
+                selectedIcon = AppIconOption.IPL_MI
+            )
+        }
+
+        // Simulate process restart by instantiating a fresh SettingsRepository
+        val repo2 = com.example.data.preferences.SettingsRepository(context)
+        val loadedSync = repo2.currentSettings
+        assertEquals(AppThemeMode.MIDNIGHT_NAVY, loadedSync.themeMode)
+        assertEquals(AppBackgroundPreset.EMERALD, loadedSync.backgroundPreset)
+        assertEquals(AccentPreset.OCEAN_BLUE, loadedSync.accentPreset)
+        assertEquals(AppIconOption.IPL_MI, loadedSync.selectedIcon)
+        assertEquals(loadedSync, repo2.settingsState.value)
+
+        // Restore clean defaults so other tests remain isolated
+        repo2.resetAllSettings()
+    }
+
+    @Test
+    fun `calculator display allows mid-expression cursor insertion, backspace, and cursor lock`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = com.example.data.preferences.SettingsRepository(context)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(
+            context,
+            com.example.data.local.CucalcusDatabase::class.java
+        ).allowMainThreadQueries().build()
+        val historyRepo = com.example.data.repository.HistoryRepository(db.historyDao())
+        val haptics = com.example.platform.HapticManager(context)
+        val vm = com.example.ui.calculator.CalculatorViewModel(repo, historyRepo, haptics)
+
+        fun state(): com.example.ui.calculator.CalculatorUiState {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            return vm.uiState.value
+        }
+
+        // Type "1234"
+        listOf("1", "2", "3", "4").forEach { vm.onDigit(it) }
+        assertEquals("1234", state().expression)
+        assertEquals(4, state().cursorPosition)
+
+        // Move cursor to middle (after "12") and delete '2'
+        vm.onCursorPositionChange(2)
+        assertEquals(2, state().cursorPosition)
+        vm.onBackspace()
+        assertEquals("134", state().expression)
+        assertEquals(1, state().cursorPosition)
+
+        // Insert '9' in the middle
+        vm.onDigit("9")
+        assertEquals("1934", state().expression)
+        assertEquals(2, state().cursorPosition)
+
+        // Lock cursor via lock toggle -> attempted cursor moves are ignored
+        vm.toggleCursorLock()
+        assertTrue(state().isCursorLocked)
+        vm.onCursorPositionChange(4)
+        assertEquals(2, state().cursorPosition)
+
+        // Unlock cursor -> cursor movement works again
+        vm.toggleCursorLock()
+        assertTrue(!state().isCursorLocked)
+        vm.onCursorPositionChange(4)
+        assertEquals(4, state().cursorPosition)
+
+        // Multi-token delete in middle: insert "+sin(30)", move cursor after "sin(", backspace deletes entire "sin("
+        vm.onOperator("+")
+        vm.onScientificFunction("sin")
+        vm.onDigit("3")
+        vm.onDigit("0")
+        vm.onCloseParen()
+        assertEquals("1934+sin(30)", state().expression)
+        vm.onCursorPositionChange("1934+sin(".length)
+        vm.onBackspace()
+        assertEquals("1934+30)", state().expression)
+        assertEquals("1934+".length, state().cursorPosition)
+        db.close()
+    }
+
+    @Test
+    fun `expression comma visual transformation keeps cursor offset mapping accurate`() {
+        val transformation = com.example.ui.calculator.ExpressionFormatTransformation(
+            com.example.domain.math.NumberFormatMode.INTERNATIONAL
+        )
+        val raw = androidx.compose.ui.text.AnnotatedString("1234567+8901")
+        val transformed = transformation.filter(raw)
+        assertEquals("1,234,567+8,901", transformed.text.text)
+        assertEquals(0, transformed.offsetMapping.originalToTransformed(0))
+        assertEquals(raw.length, transformed.offsetMapping.transformedToOriginal(transformed.text.length))
+
+        for (i in 0..raw.length) {
+            val transIdx = transformed.offsetMapping.originalToTransformed(i)
+            assertTrue(transIdx in 0..transformed.text.length)
+            val roundTrip = transformed.offsetMapping.transformedToOriginal(transIdx)
+            assertEquals(i, roundTrip)
+        }
+    }
 }

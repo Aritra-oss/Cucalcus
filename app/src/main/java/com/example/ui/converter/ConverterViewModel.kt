@@ -54,11 +54,11 @@ class ConverterViewModel(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ConverterUiState())
-    private var currentSettings = CucalcusSettings()
+    private var currentSettings = settingsRepository.currentSettings
 
     val uiState: StateFlow<ConverterUiState> = combine(
         _state,
-        settingsRepository.settingsFlow,
+        settingsRepository.settingsState,
         currencyRepository.recentUnitConversions,
         currencyRepository.recentCurrencyConversions
     ) { st, cfg, recentUnits, recentCurrencies ->

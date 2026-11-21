@@ -9,6 +9,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -37,9 +38,6 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SwapVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,6 +57,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -68,8 +68,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.CalculationHistoryEntity
+import com.example.ui.components.BouncyDialog
+import com.example.ui.components.BouncyPopupMenu
+import com.example.ui.components.BouncySurface
 import com.example.ui.components.HistoryBodySkeleton
 import com.example.ui.components.SwissScreenTopBar
+import com.example.ui.components.bouncyPress
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
 import kotlinx.coroutines.delay
@@ -95,7 +99,7 @@ fun HistoryScreen(
     var isContentReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        delay(150)
+        delay(80)
         isContentReady = true
     }
 
@@ -117,41 +121,62 @@ fun HistoryScreen(
                         tint = colors.primaryText
                     )
                 }
-                DropdownMenu(
+                BouncyPopupMenu(
                     expanded = showExportMenu,
                     onDismissRequest = { showExportMenu = false },
-                    modifier = Modifier.background(colors.elevatedSurface)
+                    transformOrigin = TransformOrigin(0.88f, 0.04f),
+                    modifier = Modifier
+                        .widthIn(min = 180.dp)
+                        .padding(top = 44.dp)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Export as CSV", color = colors.primaryText) },
-                        onClick = {
-                            showExportMenu = false
-                            scope.launch {
-                                val csv = viewModel.generateCsvExport()
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/csv"
-                                    putExtra(Intent.EXTRA_SUBJECT, "Cucalcus History (CSV)")
-                                    putExtra(Intent.EXTRA_TEXT, csv)
+                    val csvInteraction = remember { MutableInteractionSource() }
+                    val txtInteraction = remember { MutableInteractionSource() }
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .bouncyPress(csvInteraction, pressedScale = 0.96f)
+                                .clickable(interactionSource = csvInteraction, indication = null) {
+                                    showExportMenu = false
+                                    scope.launch {
+                                        val csv = viewModel.generateCsvExport()
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/csv"
+                                            putExtra(Intent.EXTRA_SUBJECT, "Cucalcus History (CSV)")
+                                            putExtra(Intent.EXTRA_TEXT, csv)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "Export History CSV"))
+                                    }
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Export History CSV"))
-                            }
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Text("Export as CSV", color = colors.primaryText, style = MaterialTheme.typography.bodyMedium)
                         }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Export as TXT", color = colors.primaryText) },
-                        onClick = {
-                            showExportMenu = false
-                            scope.launch {
-                                val txt = viewModel.generateTxtExport()
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_SUBJECT, "Cucalcus History (TXT)")
-                                    putExtra(Intent.EXTRA_TEXT, txt)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .bouncyPress(txtInteraction, pressedScale = 0.96f)
+                                .clickable(interactionSource = txtInteraction, indication = null) {
+                                    showExportMenu = false
+                                    scope.launch {
+                                        val txt = viewModel.generateTxtExport()
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_SUBJECT, "Cucalcus History (TXT)")
+                                            putExtra(Intent.EXTRA_TEXT, txt)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "Export History TXT"))
+                                    }
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Export History TXT"))
-                            }
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Text("Export as TXT", color = colors.primaryText, style = MaterialTheme.typography.bodyMedium)
                         }
-                    )
+                    }
                 }
             }
             IconButton(
@@ -215,7 +240,7 @@ fun HistoryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
+                BouncySurface(
                     onClick = viewModel::toggleSortOrder,
                     shape = RoundedCornerShape(50),
                     color = colors.cardBg,
@@ -241,7 +266,7 @@ fun HistoryScreen(
                     }
                 }
 
-                Surface(
+                BouncySurface(
                     onClick = viewModel::toggleFavoritesFilter,
                     shape = RoundedCornerShape(50),
                     color = if (state.favoritesOnly) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
@@ -342,7 +367,7 @@ fun HistoryScreen(
     }
 
     if (showClearConfirm) {
-        AlertDialog(
+        BouncyDialog(
             onDismissRequest = { showClearConfirm = false },
             shape = RoundedCornerShape(24.dp),
             containerColor = colors.cardBg,

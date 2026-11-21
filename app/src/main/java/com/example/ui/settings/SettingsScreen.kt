@@ -7,19 +7,25 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import com.example.ui.components.SettingsBodySkeleton
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +53,7 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SmartButton
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -76,6 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -99,15 +106,20 @@ import com.example.data.preferences.HapticStrength
 import com.example.data.preferences.KeypadArrangement
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
+import com.example.ui.components.BouncyDialog
+import com.example.ui.components.BouncySurface
 import com.example.ui.components.CalculatorKeyButton
 import com.example.ui.components.KeypadKeyKind
+import com.example.ui.components.SettingsBodySkeleton
 import com.example.ui.components.SwissScreenTopBar
 import com.example.ui.components.SwissSectionHeader
+import com.example.ui.components.bouncyPress
 import com.example.ui.components.toComposeShape
 import com.example.ui.theme.CucalcusFonts
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.contrastOnColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -135,17 +147,35 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     var selectedFilter by remember { mutableStateOf(SettingsFilter.ALL) }
-    var isContentReady by remember { mutableStateOf(false) }
+    var isContentReady by remember { mutableStateOf(BrandIconBitmapCache.isWarmedUp) }
     var showCustomColorDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
 
+    val filterScrollState = rememberScrollState()
+    val bodyScrollState = rememberScrollState()
+    val reducedMotion = CucalcusTheme.reducedMotion
+
     LaunchedEffect(isContentReady) {
         if (!isContentReady) {
             BrandIconBitmapCache.warmUp(context)
-            delay(170)
+            delay(80)
             isContentReady = true
+        }
+    }
+
+    LaunchedEffect(selectedFilter) {
+        if (!reducedMotion && bodyScrollState.value > 0) {
+            bodyScrollState.animateScrollTo(
+                value = 0,
+                animationSpec = spring(
+                    dampingRatio = 0.88f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        } else {
+            bodyScrollState.scrollTo(0)
         }
     }
 
@@ -174,11 +204,11 @@ fun SettingsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
+                .horizontalScroll(filterScrollState)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SettingsFilter.entries.forEach { filter ->
+            SettingsFilter.entries.forEachIndexed { idx, filter ->
                 val isSelected = selectedFilter == filter
                 val pillBg by animateColorAsState(
                     targetValue = if (isSelected) colors.accent else colors.cardBg.copy(alpha = 0.85f),
@@ -188,12 +218,16 @@ fun SettingsScreen(
                     targetValue = if (isSelected) colors.onAccent else colors.secondaryText,
                     label = "settings_filter_fg"
                 )
-                Surface(
+                BouncySurface(
                     onClick = {
-                        if (filter == SettingsFilter.ALL && selectedFilter != SettingsFilter.ALL) {
-                            isContentReady = false
-                        }
                         selectedFilter = filter
+                        scope.launch {
+                            val targetX = (idx * 160 - 120).coerceAtLeast(0)
+                            filterScrollState.animateScrollTo(
+                                targetX,
+                                spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
+                            )
+                        }
                     },
                     shape = RoundedCornerShape(50),
                     color = pillBg,
@@ -223,7 +257,7 @@ fun SettingsScreen(
             }
         }
 
-        val transitionMs = if (CucalcusTheme.reducedMotion) 0 else 180
+        val transitionMs = if (reducedMotion) 0 else 140
         AnimatedContent(
             targetState = if (isContentReady) selectedFilter else null,
             transitionSpec = {
@@ -239,29 +273,40 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                        .verticalScroll(bodyScrollState)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = 0.86f,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                 // =========================================================================
-                // THEME, BACKGROUND & ACCENT
+                // THEME, BACKGROUND & ACCENT (Sleek thin expandable bars with down arrow)
                 // =========================================================================
                 if (showAll || activeFilter == SettingsFilter.THEME_BG) {
                     SwissSectionHeader(
                         title = "Theme & Backdrop",
-                        subtitle = "20 themes, 20 whole-app colours, gallery backdrop & accents"
+                        subtitle = "Tap any bar to expand colour options"
                     )
 
-                    SettingSubLabel("App Theme (20 Colours)")
                     ThemePaletteGrid(
                         selectedTheme = settings.themeMode,
                         onSelectTheme = viewModel::updateThemeMode
                     )
 
-                    SettingSubLabel("Whole-App Background (20 Colours)")
                     BackgroundPaletteSection(
                         selectedBackground = settings.backgroundPreset,
                         onSelectBackground = viewModel::setBackgroundPreset
+                    )
+
+                    AccentAccordionSection(
+                        accentPreset = settings.accentPreset,
+                        customAccentArgb = settings.customAccentArgb,
+                        onSelectPreset = viewModel::selectAccentPreset,
+                        onOpenCustomPicker = { showCustomColorDialog = true }
                     )
 
                     SettingSubLabel("Gallery Background Picture")
@@ -277,98 +322,6 @@ fun SettingsScreen(
                             onShowMessage("Gallery background removed")
                         }
                     )
-
-                    SettingSubLabel("Accent Colour")
-                    Surface(
-                        shape = RoundedCornerShape(22.dp),
-                        color = colors.cardBg,
-                        border = BorderStroke(1.dp, colors.border),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            AccentPreset.entries.filter { it != AccentPreset.CUSTOM }.forEach { preset ->
-                                val isSelected = settings.accentPreset == preset
-                                val swatchColor = Color(preset.argbHex)
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .clickable { viewModel.selectAccentPreset(preset) }
-                                        .padding(6.dp)
-                                        .testTag("accent_${preset.name}")
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(swatchColor)
-                                            .border(
-                                                width = if (isSelected) 2.5.dp else 1.dp,
-                                                color = if (isSelected) colors.primaryText else colors.border,
-                                                shape = CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Check,
-                                                contentDescription = preset.label,
-                                                tint = Color(0xFF0A0A0A),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(5.dp))
-                                    Text(
-                                        text = preset.label.split(" ").first(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isSelected) colors.accent else colors.secondaryText
-                                    )
-                                }
-                            }
-                            val isCustom = settings.accentPreset == AccentPreset.CUSTOM
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .clickable { showCustomColorDialog = true }
-                                    .padding(6.dp)
-                                    .testTag("accent_CUSTOM")
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(settings.customAccentArgb))
-                                        .border(
-                                            width = if (isCustom) 2.5.dp else 1.dp,
-                                            color = if (isCustom) colors.primaryText else colors.accent,
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Palette,
-                                        contentDescription = "Custom color picker",
-                                        tint = Color(0xFF0A0A0A),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(5.dp))
-                                Text(
-                                    text = "Custom",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isCustom) colors.accent else colors.secondaryText
-                                )
-                            }
-                        }
-                    }
                 }
 
                 // =========================================================================
@@ -843,7 +796,7 @@ fun SettingsScreen(
 
     if (showImportDialog) {
         var jsonText by remember { mutableStateOf("") }
-        AlertDialog(
+        BouncyDialog(
             onDismissRequest = { showImportDialog = false },
             shape = RoundedCornerShape(26.dp),
             containerColor = colors.cardBg,
@@ -895,7 +848,7 @@ fun SettingsScreen(
     }
 
     if (showClearHistoryConfirm) {
-        AlertDialog(
+        BouncyDialog(
             onDismissRequest = { showClearHistoryConfirm = false },
             shape = RoundedCornerShape(26.dp),
             containerColor = colors.cardBg,
@@ -917,14 +870,14 @@ fun SettingsScreen(
     }
 
     if (showResetConfirm) {
-        AlertDialog(
+        BouncyDialog(
             onDismissRequest = { showResetConfirm = false },
             shape = RoundedCornerShape(26.dp),
             containerColor = colors.cardBg,
             title = { Text("Reset All Settings?", color = colors.primaryText) },
             text = {
                 Text(
-                    "Restores Obsidian Black theme, Champagne Gold accent, default typography, button layout, haptics, and Quadrant icon, and removes custom background & gallery icon pictures.",
+                    "Restores Obsidian Black theme, Champagne Gold accent, default typography, button layout, haptics, and Green Edition icon, and removes custom background & gallery icon pictures.",
                     color = colors.secondaryText
                 )
             },
@@ -1060,7 +1013,7 @@ private fun ButtonShapeVisualSelector(
                 rowOptions.forEach { option ->
                     val isSelected = selectedShape == option
                     val previewShape = option.toComposeShape(cornerRadiusPercent)
-                    Surface(
+                    BouncySurface(
                         onClick = { onSelectShape(option) },
                         shape = RoundedCornerShape(16.dp),
                         color = if (isSelected) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
@@ -1123,7 +1076,7 @@ private fun CustomColorPickerDialog(
     val previewColor = Color(r, g, b, 1f)
     val hexCode = String.format("#%06X", 0xFFFFFF and previewColor.toArgb())
 
-    AlertDialog(
+    BouncyDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(26.dp),
         containerColor = colors.cardBg,
@@ -1188,7 +1141,7 @@ private fun <T> ChipSelectionRow(
     ) {
         items.forEach { (value, label) ->
             val isSel = value == selected
-            Surface(
+            BouncySurface(
                 onClick = { onSelect(value) },
                 shape = RoundedCornerShape(50),
                 color = if (isSel) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
@@ -1292,93 +1245,212 @@ private fun AboutRow(label: String, value: String) {
 }
 
 @Composable
-private fun ThemePaletteGrid(
-    selectedTheme: AppThemeMode,
-    onSelectTheme: (AppThemeMode) -> Unit
+private fun ThinExpandableColorAccordion(
+    title: String,
+    activeLabel: String,
+    activeSwatchColor: Color,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+    headerTestTag: String,
+    expandedContent: @Composable ColumnScope.() -> Unit
 ) {
     val colors = CucalcusTheme.colors
+    val reducedMotion = CucalcusTheme.reducedMotion
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = if (reducedMotion) tween(0) else spring(
+            dampingRatio = 0.72f,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "accordion_arrow"
+    )
+    val headerInteraction = remember { MutableInteractionSource() }
+
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = colors.cardBg,
-        border = BorderStroke(1.dp, colors.border),
-        modifier = Modifier.fillMaxWidth()
+        border = BorderStroke(1.dp, if (expanded) colors.accent.copy(alpha = 0.55f) else colors.border),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = if (reducedMotion) tween(0) else spring(
+                    dampingRatio = 0.82f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bouncyPress(headerInteraction, pressedScale = 0.98f)
+                    .clickable(interactionSource = headerInteraction, indication = null) {
+                        onToggleExpand()
+                    }
+                    .padding(horizontal = 14.dp, vertical = 11.dp)
+                    .testTag(headerTestTag)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(activeSwatchColor)
+                        .border(1.5.dp, colors.border, CircleShape)
+                )
                 Text(
-                    text = "ACTIVE THEME",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.secondaryText
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = colors.primaryText,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = colors.accent.copy(alpha = 0.14f)
                 ) {
                     Text(
-                        text = selectedTheme.label,
+                        text = activeLabel,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = colors.accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                    tint = colors.secondaryText,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .graphicsLayer { rotationZ = arrowRotation }
+                )
             }
-            AppThemeMode.entries.chunked(5).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(140)) + expandVertically(
+                    spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
+                ),
+                exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(100)) + shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    rowItems.forEach { mode ->
-                        val isSelected = selectedTheme == mode
-                        val swatchColor = Color(mode.swatchArgb)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSelected) colors.accent.copy(alpha = 0.12f) else Color.Transparent)
-                                .clickable { onSelectTheme(mode) }
-                                .padding(vertical = 6.dp, horizontal = 2.dp)
-                                .testTag("theme_${mode.name}")
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(swatchColor)
-                                    .border(
-                                        width = if (isSelected) 2.5.dp else 1.dp,
-                                        color = if (isSelected) colors.accent else colors.border,
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Check,
-                                        contentDescription = mode.label,
-                                        tint = contrastOnColor(swatchColor),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = mode.label.split(" ").first(),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = if (isSelected) colors.accent else colors.secondaryText,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                    HorizontalDivider(thickness = 0.8.dp, color = colors.border.copy(alpha = 0.7f))
+                    expandedContent()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactColorPill(
+    label: String,
+    swatchColor: Color,
+    isSelected: Boolean,
+    testTagName: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null
+) {
+    val colors = CucalcusTheme.colors
+    BouncySurface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = if (isSelected) colors.accent.copy(alpha = 0.16f) else colors.secondaryBg.copy(alpha = 0.85f),
+        border = BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) colors.accent else colors.border
+        ),
+        pressedScale = 0.94f,
+        modifier = modifier.testTag(testTagName)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(swatchColor)
+                    .border(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) colors.primaryText else colors.border,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (leadingIcon != null) {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = null,
+                        tint = contrastOnColor(swatchColor),
+                        modifier = Modifier.size(10.dp)
+                    )
+                } else if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = label,
+                        tint = contrastOnColor(swatchColor),
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                ),
+                color = if (isSelected) colors.accent else colors.primaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemePaletteGrid(
+    selectedTheme: AppThemeMode,
+    onSelectTheme: (AppThemeMode) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ThinExpandableColorAccordion(
+        title = "App Theme",
+        activeLabel = selectedTheme.label,
+        activeSwatchColor = Color(selectedTheme.swatchArgb),
+        expanded = expanded,
+        onToggleExpand = { expanded = !expanded },
+        headerTestTag = "theme_accordion_toggle"
+    ) {
+        AppThemeMode.entries.chunked(3).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                rowItems.forEach { mode ->
+                    CompactColorPill(
+                        label = mode.label.split(" ").first(),
+                        swatchColor = Color(mode.swatchArgb),
+                        isSelected = selectedTheme == mode,
+                        testTagName = "theme_${mode.name}",
+                        onClick = { onSelectTheme(mode) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                repeat(3 - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -1391,17 +1463,31 @@ private fun BackgroundPaletteSection(
     onSelectBackground: (AppBackgroundPreset) -> Unit
 ) {
     val colors = CucalcusTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    var expanded by remember { mutableStateOf(false) }
+    val previewColor = if (selectedBackground == AppBackgroundPreset.THEME_DEFAULT) {
+        colors.mainBg
+    } else {
+        Color(selectedBackground.argbHex)
+    }
+
+    ThinExpandableColorAccordion(
+        title = "App Background",
+        activeLabel = selectedBackground.label,
+        activeSwatchColor = previewColor,
+        expanded = expanded,
+        onToggleExpand = { expanded = !expanded },
+        headerTestTag = "bg_accordion_toggle"
+    ) {
         val isMatchTheme = selectedBackground == AppBackgroundPreset.THEME_DEFAULT
-        Surface(
+        BouncySurface(
             onClick = { onSelectBackground(AppBackgroundPreset.THEME_DEFAULT) },
             shape = RoundedCornerShape(50),
-            color = if (isMatchTheme) colors.accent.copy(alpha = 0.16f) else colors.cardBg,
+            color = if (isMatchTheme) colors.accent.copy(alpha = 0.16f) else colors.secondaryBg,
             border = BorderStroke(1.dp, if (isMatchTheme) colors.accent else colors.border),
             modifier = Modifier.testTag("bg_THEME_DEFAULT")
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -1410,102 +1496,85 @@ private fun BackgroundPaletteSection(
                         imageVector = Icons.Outlined.Check,
                         contentDescription = null,
                         tint = colors.accent,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
                 Text(
                     text = "Match Active Theme",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = if (isMatchTheme) colors.accent else colors.primaryText
                 )
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = colors.cardBg,
-            border = BorderStroke(1.dp, colors.border),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+        AppBackgroundPreset.colorChoices.chunked(3).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "BACKGROUND COLOUR",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.secondaryText
+                rowItems.forEach { preset ->
+                    CompactColorPill(
+                        label = preset.label.split(" ").last(),
+                        swatchColor = Color(preset.argbHex),
+                        isSelected = selectedBackground == preset,
+                        testTagName = "bg_${preset.name}",
+                        onClick = { onSelectBackground(preset) },
+                        modifier = Modifier.weight(1f)
                     )
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = colors.accent.copy(alpha = 0.14f)
-                    ) {
-                        Text(
-                            text = selectedBackground.label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = colors.accent,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
                 }
-                AppBackgroundPreset.colorChoices.chunked(5).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        rowItems.forEach { preset ->
-                            val isSelected = selectedBackground == preset
-                            val swatchColor = Color(preset.argbHex)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isSelected) colors.accent.copy(alpha = 0.12f) else Color.Transparent)
-                                    .clickable { onSelectBackground(preset) }
-                                    .padding(vertical = 6.dp, horizontal = 2.dp)
-                                    .testTag("bg_${preset.name}")
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .background(swatchColor)
-                                        .border(
-                                            width = if (isSelected) 2.5.dp else 1.dp,
-                                            color = if (isSelected) colors.accent else colors.border,
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Check,
-                                            contentDescription = preset.label,
-                                            tint = contrastOnColor(swatchColor),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = preset.label.split(" ").last(),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = if (isSelected) colors.accent else colors.secondaryText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
+                repeat(3 - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AccentAccordionSection(
+    accentPreset: AccentPreset,
+    customAccentArgb: Long,
+    onSelectPreset: (AccentPreset) -> Unit,
+    onOpenCustomPicker: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val activeColor = if (accentPreset == AccentPreset.CUSTOM) {
+        Color(customAccentArgb)
+    } else {
+        Color(accentPreset.argbHex)
+    }
+
+    ThinExpandableColorAccordion(
+        title = "Accent Colour",
+        activeLabel = accentPreset.label,
+        activeSwatchColor = activeColor,
+        expanded = expanded,
+        onToggleExpand = { expanded = !expanded },
+        headerTestTag = "accent_accordion_toggle"
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AccentPreset.entries.filter { it != AccentPreset.CUSTOM }.forEach { preset ->
+                CompactColorPill(
+                    label = preset.label.split(" ").first(),
+                    swatchColor = Color(preset.argbHex),
+                    isSelected = accentPreset == preset,
+                    testTagName = "accent_${preset.name}",
+                    onClick = { onSelectPreset(preset) }
+                )
+            }
+            CompactColorPill(
+                label = "Custom",
+                swatchColor = Color(customAccentArgb),
+                isSelected = accentPreset == AccentPreset.CUSTOM,
+                testTagName = "accent_CUSTOM",
+                onClick = onOpenCustomPicker,
+                leadingIcon = Icons.Outlined.Palette
+            )
         }
     }
 }

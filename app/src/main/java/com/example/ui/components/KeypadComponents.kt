@@ -76,9 +76,17 @@ fun CalculatorKeyButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed && !reducedMotion) 0.94f else 1f,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = 600f),
+        targetValue = if (isPressed && !reducedMotion) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.58f,
+            stiffness = 520f
+        ),
         label = "key_scale"
+    )
+    val pressAlpha by animateFloatAsState(
+        targetValue = if (isPressed && !reducedMotion) 0.88f else 1f,
+        animationSpec = spring(stiffness = 700f),
+        label = "key_press_alpha"
     )
 
     val shape = settings.buttonShape.toComposeShape(settings.buttonCornerRadiusPercent)
@@ -157,6 +165,7 @@ fun CalculatorKeyButton(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = pressAlpha
             }
             .semantics {
                 role = Role.Button

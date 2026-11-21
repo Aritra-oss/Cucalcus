@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="cucalcus_main_bg">#080808</color>
+    <color name="cucalcus_main_bg">#0A120E</color>
+    <color name="cucalcus_splash_bg">#0A120E</color>
     <color name="cucalcus_champagne_gold">#D6B56D</color>
 </resources>

@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 
 data class CalculatorUiState(
     val expression: String = "",
+    val cursorPosition: Int = 0,
+    val isCursorLocked: Boolean = false,
     val formattedExpression: String = "",
     val livePreview: String = "",
     val errorMessage: String? = null,
@@ -40,110 +42,213 @@ class CalculatorViewModel(
     private val hapticManager: HapticManager
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(CalculatorUiState())
-    private var latestSettings = CucalcusSettings()
+    private val initialSettings = settingsRepository.currentSettings
+    private val _state = MutableStateFlow(
+        CalculatorUiState(
+            isScientificExpanded = initialSettings.defaultScientificExpanded,
+            angleMode = initialSettings.angleMode,
+            memoryValue = initialSettings.calculatorMemory
+        )
+    )
+    private var latestSettings = initialSettings
 
-    val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, CucalcusSettings())
-
-    init {
-        viewModelScope.launch {
-            val initial = settingsRepository.settingsFlow.first()
-            latestSettings = initial
-            _state.update {
-                it.copy(
-                    isScientificExpanded = initial.defaultScientificExpanded,
-                    angleMode = initial.angleMode,
-                    memoryValue = initial.calculatorMemory
-                )
-            }
-        }
-    }
+    val settings: StateFlow<CucalcusSettings> = settingsRepository.settingsState
 
     val uiState: StateFlow<CalculatorUiState> = combine(_state, settings) { st, cfg ->
         latestSettings = cfg
         val formattedExpr = NumberFormatter.formatExpressionNumbers(st.expression, cfg.numberFormatMode)
         st.copy(
+            cursorPosition = st.cursorPosition.coerceIn(0, st.expression.length),
             formattedExpression = formattedExpr,
             memoryValue = cfg.calculatorMemory
         )
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, CalculatorUiState())
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        CalculatorUiState(
+            isScientificExpanded = initialSettings.defaultScientificExpanded,
+            angleMode = initialSettings.angleMode,
+            memoryValue = initialSettings.calculatorMemory
+        )
+    )
 
     private fun triggerHaptic() {
         val cfg = latestSettings
         hapticManager.performTick(cfg.hapticStrength, cfg.hapticEnabled)
     }
 
+    fun toggleCursorLock() {
+        triggerHaptic()
+        _state.update { current ->
+            current.copy(
+                isCursorLocked = !current.isCursorLocked,
+                cursorPosition = current.cursorPosition.coerceIn(0, current.expression.length)
+            )
+        }
+    }
+
+    fun onCursorPositionChange(newPosition: Int) {
+        _state.update { current ->
+            if (current.isCursorLocked) return@update current
+            val clamped = newPosition.coerceIn(0, current.expression.length)
+            if (clamped == current.cursorPosition && !current.justEvaluated) return@update current
+            current.copy(
+                cursorPosition = clamped,
+                justEvaluated = false
+            )
+        }
+    }
+
+    private fun insertAtCursor(base: String, cursor: Int, token: String): Pair<String, Int> {
+        val pos = cursor.coerceIn(0, base.length)
+        val next = base.substring(0, pos) + token + base.substring(pos)
+        return next to (pos + token.length)
+    }
+
     fun onDigit(digit: String) {
         triggerHaptic()
         _state.update { current ->
-            val base = if (current.justEvaluated) "" else current.expression
+            val freshStart = current.justEvaluated
+            val base = if (freshStart) "" else current.expression
+            val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, base.length)
+
             if (digit == ".") {
-                val lastNumber = base.takeLastWhile { it.isDigit() || it == '.' }
-                if (lastNumber.contains('.')) return@update current
-                val addition = if (lastNumber.isEmpty()) "0." else "."
-                return@update recalculate(current.copy(expression = base + addition, justEvaluated = false, errorMessage = null))
+                val leftSegment = base.substring(0, pos).takeLastWhile { it.isDigit() || it == '.' }
+                val rightSegment = base.substring(pos).takeWhile { it.isDigit() || it == '.' }
+                if (leftSegment.contains('.') || rightSegment.contains('.')) {
+                    return@update current
+                }
+                val hasAdjacentDigitBefore = pos > 0 && base[pos - 1].isDigit()
+                val hasAdjacentDigitAfter = pos < base.length && base[pos].isDigit()
+                val addition = if (!hasAdjacentDigitBefore && !hasAdjacentDigitAfter) "0." else "."
+                val (nextExpr, nextCursor) = insertAtCursor(base, pos, addition)
+                return@update recalculate(
+                    current.copy(
+                        expression = nextExpr,
+                        cursorPosition = nextCursor,
+                        justEvaluated = false,
+                        errorMessage = null
+                    )
+                )
             }
-            val nextExpr = if ((digit == "0" || digit == "00" || digit == "000") && base == "0") {
+
+            if ((digit == "0" || digit == "00" || digit == "000") && base == "0" && pos == 1) {
+                return@update recalculate(
+                    current.copy(
+                        expression = "0",
+                        cursorPosition = 1,
+                        justEvaluated = false,
+                        errorMessage = null
+                    )
+                )
+            }
+
+            val prevChar = if (pos > 0) base[pos - 1] else null
+            val tokenToInsert = if ((digit == "00" || digit == "000") &&
+                (prevChar == null || prevChar in listOf('+', '−', '×', '÷', '(', '^'))
+            ) {
                 "0"
-            } else if ((digit == "00" || digit == "000") && (base.isEmpty() || base.last() in listOf('+', '−', '×', '÷', '(', '^'))) {
-                base + "0"
             } else {
-                base + digit
+                digit
             }
-            recalculate(current.copy(expression = nextExpr, justEvaluated = false, errorMessage = null))
+            val (nextExpr, nextCursor) = insertAtCursor(base, pos, tokenToInsert)
+            recalculate(
+                current.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
     fun onOperator(op: String) {
         triggerHaptic()
         _state.update { current ->
-            var expr = current.expression
+            val expr = current.expression
+            val pos = current.cursorPosition.coerceIn(0, expr.length)
+            var before = expr.substring(0, pos)
+            val after = expr.substring(pos)
             val symbol = if (op == "-") "−" else op
 
-            if (expr.isEmpty()) {
-                return@update if (symbol == "−") {
-                    recalculate(current.copy(expression = "−", justEvaluated = false, errorMessage = null))
+            if (before.isEmpty()) {
+                return@update if (symbol == "−" && !after.startsWith("−")) {
+                    val (nextExpr, nextCursor) = insertAtCursor(expr, pos, "−")
+                    recalculate(
+                        current.copy(
+                            expression = nextExpr,
+                            cursorPosition = nextCursor,
+                            justEvaluated = false,
+                            errorMessage = null
+                        )
+                    )
                 } else {
                     current
                 }
             }
 
-            // Allow unary minus right after '(' or '^', but block binary operators right after '('
-            if (expr.last() == '(') {
+            // Allow unary minus right after '(', block binary operators right after '('
+            if (before.last() == '(') {
                 return@update if (symbol == "−") {
-                    recalculate(current.copy(expression = expr + "−", justEvaluated = false, errorMessage = null))
+                    val (nextExpr, nextCursor) = insertAtCursor(expr, pos, "−")
+                    recalculate(
+                        current.copy(
+                            expression = nextExpr,
+                            cursorPosition = nextCursor,
+                            justEvaluated = false,
+                            errorMessage = null
+                        )
+                    )
                 } else {
                     current
                 }
             }
 
-            // If expression ends with "(−", replacing with another binary operator is invalid
-            if (expr.endsWith("(−") || expr == "−") {
+            // Cannot replace leading unary minus or "(−" with a binary operator
+            if (before.endsWith("(−") || before == "−") {
                 return@update current
             }
 
-            // Replace trailing binary operator if user changes operator
+            // Replace operator immediately before the cursor
             val binaryOps = listOf("+", "−", "-", "×", "÷", "^")
-            if (expr.endsWith("mod")) {
-                expr = expr.removeSuffix("mod")
-            } else if (expr.last().toString() in binaryOps) {
-                expr = expr.dropLast(1)
-                if (expr.endsWith("(") && symbol != "−") {
+            if (before.endsWith("mod")) {
+                before = before.removeSuffix("mod")
+            } else if (before.last().toString() in binaryOps) {
+                before = before.dropLast(1)
+                if (before.endsWith("(") && symbol != "−") {
                     return@update current
                 }
             }
-            recalculate(current.copy(expression = expr + symbol, justEvaluated = false, errorMessage = null))
+            val nextExpr = before + symbol + after
+            val nextCursor = before.length + symbol.length
+            recalculate(
+                current.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
     fun onPercent() {
         triggerHaptic()
         _state.update { current ->
-            if (current.expression.isEmpty()) return@update current
-            val last = current.expression.last()
-            if (last.isDigit() || last == ')' || last == 'π' || last == 'e') {
-                recalculate(current.copy(expression = current.expression + "%", justEvaluated = false, errorMessage = null))
+            val pos = current.cursorPosition.coerceIn(0, current.expression.length)
+            if (pos == 0) return@update current
+            val prev = current.expression[pos - 1]
+            if (prev.isDigit() || prev == ')' || prev == 'π' || prev == 'e') {
+                val (nextExpr, nextCursor) = insertAtCursor(current.expression, pos, "%")
+                recalculate(
+                    current.copy(
+                        expression = nextExpr,
+                        cursorPosition = nextCursor,
+                        justEvaluated = false,
+                        errorMessage = null
+                    )
+                )
             } else {
                 current
             }
@@ -153,35 +258,66 @@ class CalculatorViewModel(
     fun onParenthesis() {
         triggerHaptic()
         _state.update { current ->
-            val expr = if (current.justEvaluated) "" else current.expression
-            val open = expr.count { it == '(' }
-            val close = expr.count { it == ')' }
-            val last = expr.lastOrNull()
+            val freshStart = current.justEvaluated
+            val expr = if (freshStart) "" else current.expression
+            val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, expr.length)
+            val before = expr.substring(0, pos)
+            val open = before.count { it == '(' }
+            val close = before.count { it == ')' }
+            val last = before.lastOrNull()
             val token = if (open > close && last != null && (last.isDigit() || last == ')' || last == 'π' || last == 'e' || last == '%' || last == '!')) {
                 ")"
             } else {
                 "("
             }
-            recalculate(current.copy(expression = expr + token, justEvaluated = false, errorMessage = null))
+            val (nextExpr, nextCursor) = insertAtCursor(expr, pos, token)
+            recalculate(
+                current.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
     fun onOpenParen() {
         triggerHaptic()
         _state.update { current ->
-            val expr = if (current.justEvaluated) "" else current.expression
-            recalculate(current.copy(expression = expr + "(", justEvaluated = false, errorMessage = null))
+            val freshStart = current.justEvaluated
+            val expr = if (freshStart) "" else current.expression
+            val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, expr.length)
+            val (nextExpr, nextCursor) = insertAtCursor(expr, pos, "(")
+            recalculate(
+                current.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
     fun onCloseParen() {
         triggerHaptic()
         _state.update { current ->
-            val open = current.expression.count { it == '(' }
-            val close = current.expression.count { it == ')' }
-            val last = current.expression.lastOrNull()
+            val pos = current.cursorPosition.coerceIn(0, current.expression.length)
+            val before = current.expression.substring(0, pos)
+            val open = before.count { it == '(' }
+            val close = before.count { it == ')' }
+            val last = before.lastOrNull()
             if (open > close && last != null && last != '(' && last !in listOf('+', '−', '×', '÷', '^')) {
-                recalculate(current.copy(expression = current.expression + ")", justEvaluated = false, errorMessage = null))
+                val (nextExpr, nextCursor) = insertAtCursor(current.expression, pos, ")")
+                recalculate(
+                    current.copy(
+                        expression = nextExpr,
+                        cursorPosition = nextCursor,
+                        justEvaluated = false,
+                        errorMessage = null
+                    )
+                )
             } else {
                 current
             }
@@ -193,10 +329,21 @@ class CalculatorViewModel(
         _state.update { current ->
             val expr = current.expression
             if (expr.isEmpty()) {
-                return@update current.copy(expression = "−", justEvaluated = false, errorMessage = null)
+                return@update current.copy(
+                    expression = "−",
+                    cursorPosition = 1,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
             }
             if (expr == "−") {
-                return@update current.copy(expression = "", livePreview = "", justEvaluated = false, errorMessage = null)
+                return@update current.copy(
+                    expression = "",
+                    cursorPosition = 0,
+                    livePreview = "",
+                    justEvaluated = false,
+                    errorMessage = null
+                )
             }
             val simpleLiteral = Regex("""^\d+(\.\d+)?([eE][+−-]?\d+)?$""")
             val isOuterNegatedGroup = expr.startsWith("−(") && expr.endsWith(")") && run {
@@ -223,7 +370,14 @@ class CalculatorViewModel(
                 isOuterNegatedGroup -> expr.removePrefix("−(").dropLast(1)
                 else -> "−($expr)"
             }
-            recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
+            recalculate(
+                current.copy(
+                    expression = next,
+                    cursorPosition = next.length,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
@@ -231,35 +385,89 @@ class CalculatorViewModel(
         triggerHaptic()
         _state.update { current ->
             val expr = current.expression
-            val base = if (current.justEvaluated) "" else expr
-            val endsWithValue = expr.isNotEmpty() &&
-                (expr.last().isDigit() || expr.last() in listOf(')', 'π', 'e', '%', '!'))
+            val freshStart = current.justEvaluated
+            val base = if (freshStart) "" else expr
+            val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, expr.length)
 
-            val next = when (fn) {
-                "x²" -> if (endsWithValue) "($expr)^2" else return@update current
-                "1/x" -> if (endsWithValue) "1÷($expr)" else "${base}1÷("
-                "√" -> "$base√("
-                "|x|" -> "${base}abs("
-                "eˣ" -> "${base}exp("
-                "10ˣ" -> "${base}10^("
-                "x!" -> if (endsWithValue) "$expr!" else return@update current
-                "π" -> "${base}π"
-                "e" -> "${base}e"
-                else -> "$base$fn("
+            val prevChar = if (pos > 0) expr[pos - 1] else null
+            val cursorFollowsValue = prevChar != null && (prevChar.isDigit() || prevChar in listOf(')', 'π', 'e', '%', '!'))
+
+            if (fn == "x²") {
+                return@update if (pos == expr.length && expr.isNotEmpty() && cursorFollowsValue) {
+                    val next = "($expr)^2"
+                    recalculate(current.copy(expression = next, cursorPosition = next.length, justEvaluated = false, errorMessage = null))
+                } else if (cursorFollowsValue) {
+                    val (next, nextCursor) = insertAtCursor(expr, pos, "^2")
+                    recalculate(current.copy(expression = next, cursorPosition = nextCursor, justEvaluated = false, errorMessage = null))
+                } else {
+                    current
+                }
             }
-            recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
+            if (fn == "x!") {
+                return@update if (cursorFollowsValue) {
+                    val (next, nextCursor) = insertAtCursor(expr, pos, "!")
+                    recalculate(current.copy(expression = next, cursorPosition = nextCursor, justEvaluated = false, errorMessage = null))
+                } else {
+                    current
+                }
+            }
+            if (fn == "1/x") {
+                return@update if (pos == expr.length && expr.isNotEmpty() && cursorFollowsValue) {
+                    val next = "1÷($expr)"
+                    recalculate(current.copy(expression = next, cursorPosition = next.length, justEvaluated = false, errorMessage = null))
+                } else {
+                    val (next, nextCursor) = insertAtCursor(base, pos, "1÷(")
+                    recalculate(current.copy(expression = next, cursorPosition = nextCursor, justEvaluated = false, errorMessage = null))
+                }
+            }
+
+            val token = when (fn) {
+                "√" -> "√("
+                "|x|" -> "abs("
+                "eˣ" -> "exp("
+                "10ˣ" -> "10^("
+                "π" -> "π"
+                "e" -> "e"
+                else -> "$fn("
+            }
+            val (next, nextCursor) = insertAtCursor(base, pos, token)
+            recalculate(
+                current.copy(
+                    expression = next,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
     fun onBackspace() {
         triggerHaptic()
         _state.update { current ->
-            if (current.expression.isEmpty()) return@update current.copy(errorMessage = null, livePreview = "")
+            if (current.expression.isEmpty()) {
+                return@update current.copy(cursorPosition = 0, errorMessage = null, livePreview = "")
+            }
             val expr = current.expression
+            val pos = current.cursorPosition.coerceIn(0, expr.length)
+            if (pos == 0) {
+                return@update current.copy(errorMessage = null)
+            }
+            val before = expr.substring(0, pos)
+            val after = expr.substring(pos)
             val multiTokens = listOf("sin⁻¹(", "cos⁻¹(", "tan⁻¹(", "sqrt(", "asin(", "acos(", "atan(", "sin(", "cos(", "tan(", "log(", "abs(", "exp(", "ln(", "mod", "√(")
-            val matched = multiTokens.firstOrNull { expr.endsWith(it) }
-            val next = if (matched != null) expr.dropLast(matched.length) else expr.dropLast(1)
-            recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
+            val matched = multiTokens.firstOrNull { before.endsWith(it) }
+            val delLen = matched?.length ?: 1
+            val next = before.dropLast(delLen) + after
+            val nextCursor = (pos - delLen).coerceAtLeast(0)
+            recalculate(
+                current.copy(
+                    expression = next,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
@@ -268,6 +476,7 @@ class CalculatorViewModel(
         _state.update {
             it.copy(
                 expression = "",
+                cursorPosition = 0,
                 livePreview = "",
                 errorMessage = null,
                 justEvaluated = false
@@ -308,6 +517,7 @@ class CalculatorViewModel(
                 _state.update {
                     it.copy(
                         expression = editableNumber,
+                        cursorPosition = editableNumber.length,
                         livePreview = "",
                         errorMessage = null,
                         justEvaluated = true
@@ -354,13 +564,20 @@ class CalculatorViewModel(
         val mem = latestSettings.calculatorMemory
         val formatted = NumberFormatter.toEditableExpressionNumber(mem, latestSettings.decimalPrecision)
         _state.update { current ->
-            val base = if (current.justEvaluated) "" else current.expression
-            val next = if (base.isNotEmpty() && (base.last().isDigit() || base.last() == '.')) {
-                "$base×$formatted"
-            } else {
-                base + formatted
-            }
-            recalculate(current.copy(expression = next, justEvaluated = false, errorMessage = null))
+            val freshStart = current.justEvaluated
+            val base = if (freshStart) "" else current.expression
+            val pos = if (freshStart) 0 else current.cursorPosition.coerceIn(0, base.length)
+            val prev = if (pos > 0) base[pos - 1] else null
+            val token = if (prev != null && (prev.isDigit() || prev == '.')) "×$formatted" else formatted
+            val (nextExpr, nextCursor) = insertAtCursor(base, pos, token)
+            recalculate(
+                current.copy(
+                    expression = nextExpr,
+                    cursorPosition = nextCursor,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
@@ -390,7 +607,14 @@ class CalculatorViewModel(
     fun loadExpressionFromHistory(expression: String, @Suppress("UNUSED_PARAMETER") result: String) {
         _state.update { current ->
             val cleanExpr = expression.replace(",", "").replace("-", "−")
-            recalculate(current.copy(expression = cleanExpr, justEvaluated = false, errorMessage = null))
+            recalculate(
+                current.copy(
+                    expression = cleanExpr,
+                    cursorPosition = cleanExpr.length,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 
@@ -413,7 +637,15 @@ class CalculatorViewModel(
         triggerHaptic()
         _state.update { current ->
             val normalized = expr.replace("*", "×").replace("/", "÷").replace("-", "−").replace(",", "")
-            recalculate(current.copy(expression = normalized, clipboardCandidate = null, justEvaluated = false, errorMessage = null))
+            recalculate(
+                current.copy(
+                    expression = normalized,
+                    cursorPosition = normalized.length,
+                    clipboardCandidate = null,
+                    justEvaluated = false,
+                    errorMessage = null
+                )
+            )
         }
     }
 

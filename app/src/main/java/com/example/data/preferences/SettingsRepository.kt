@@ -12,12 +12,25 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "cucalcus_prefs")
 
 class SettingsRepository(private val context: Context) {
+
+    private val appContext: Context = context.applicationContext ?: context
+    private val bootPrefs = appContext.getSharedPreferences(BOOT_PREFS_NAME, Context.MODE_PRIVATE)
+    private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
@@ -67,37 +80,119 @@ class SettingsRepository(private val context: Context) {
         val CURRENCY_CACHE_API_TIME = longPreferencesKey("currency_cache_api_time")
     }
 
-    val settingsFlow: Flow<CucalcusSettings> = context.dataStore.data.map { prefs ->
-        mapPrefsToSettings(prefs)
+    private val _settingsState = MutableStateFlow(loadInitialSettingsSync())
+    val settingsState: StateFlow<CucalcusSettings> = _settingsState.asStateFlow()
+
+    val currentSettings: CucalcusSettings
+        get() = _settingsState.value
+
+    val settingsFlow: Flow<CucalcusSettings> = settingsState
+
+    init {
+        repoScope.launch {
+            appContext.dataStore.data
+                .map { prefs -> mapPrefsToSettings(prefs) }
+                .collect { mapped ->
+                    _settingsState.value = mapped
+                    saveBootSnapshot(mapped)
+                }
+        }
+    }
+
+    private fun loadInitialSettingsSync(): CucalcusSettings {
+        val cachedJson = bootPrefs.getString(KEY_BOOT_JSON, null)
+        if (!cachedJson.isNullOrBlank()) {
+            val parsed = CucalcusSettings.fromJsonString(cachedJson).getOrNull()
+            if (parsed != null) {
+                val bgPath = bootPrefs.getString(KEY_BOOT_BG_PATH, null)?.takeIf { it.isNotBlank() }
+                val memory = if (bootPrefs.contains(KEY_BOOT_MEMORY_BITS)) {
+                    Double.fromBits(bootPrefs.getLong(KEY_BOOT_MEMORY_BITS, 0L))
+                } else {
+                    0.0
+                }
+                return parsed.copy(
+                    backgroundImagePath = bgPath,
+                    calculatorMemory = memory
+                )
+            }
+        }
+        // First run after upgrade or clean install: read DataStore once synchronously and mirror it
+        val initial = runCatching {
+            runBlocking(Dispatchers.IO) {
+                mapPrefsToSettings(appContext.dataStore.data.first())
+            }
+        }.getOrElse { CucalcusSettings() }
+        saveBootSnapshot(initial)
+        return initial
+    }
+
+    private fun saveBootSnapshot(settings: CucalcusSettings) {
+        val editor = bootPrefs.edit()
+            .putString(KEY_BOOT_JSON, settings.toJsonString())
+            .putLong(KEY_BOOT_MEMORY_BITS, settings.calculatorMemory.toBits())
+        if (settings.backgroundImagePath.isNullOrBlank()) {
+            editor.remove(KEY_BOOT_BG_PATH)
+        } else {
+            editor.putString(KEY_BOOT_BG_PATH, settings.backgroundImagePath)
+        }
+        editor.apply()
     }
 
     suspend fun updateSettings(transform: (CucalcusSettings) -> CucalcusSettings) {
-        context.dataStore.edit { prefs ->
+        val immediate = transform(_settingsState.value)
+        _settingsState.value = immediate
+        saveBootSnapshot(immediate)
+
+        var updatedSnapshot: CucalcusSettings? = null
+        appContext.dataStore.edit { prefs ->
             val current = mapPrefsToSettings(prefs)
             val updated = transform(current)
             writeSettingsToPrefs(prefs, updated)
+            updatedSnapshot = updated
+        }
+        updatedSnapshot?.let { persisted ->
+            _settingsState.value = persisted
+            saveBootSnapshot(persisted)
         }
     }
 
     suspend fun updateMemory(value: Double) {
-        context.dataStore.edit { prefs ->
+        val immediate = _settingsState.value.copy(calculatorMemory = value)
+        _settingsState.value = immediate
+        saveBootSnapshot(immediate)
+
+        appContext.dataStore.edit { prefs ->
             prefs[Keys.CALCULATOR_MEMORY] = value
         }
     }
 
     suspend fun addToMemory(delta: Double) {
-        context.dataStore.edit { prefs ->
+        appContext.dataStore.edit { prefs ->
             val current = prefs[Keys.CALCULATOR_MEMORY] ?: 0.0
-            prefs[Keys.CALCULATOR_MEMORY] = current + delta
+            val next = current + delta
+            prefs[Keys.CALCULATOR_MEMORY] = next
+            val updated = mapPrefsToSettings(prefs)
+            _settingsState.value = updated
+            saveBootSnapshot(updated)
         }
     }
 
     suspend fun resetAllSettings() {
-        context.dataStore.edit { prefs ->
-            val defaults = CucalcusSettings()
+        val defaults = CucalcusSettings()
+        _settingsState.value = defaults
+        saveBootSnapshot(defaults)
+
+        appContext.dataStore.edit { prefs ->
             writeSettingsToPrefs(prefs, defaults)
             prefs[Keys.CALCULATOR_MEMORY] = 0.0
         }
+    }
+
+    companion object {
+        private const val BOOT_PREFS_NAME = "cucalcus_boot_settings"
+        private const val KEY_BOOT_JSON = "boot_json"
+        private const val KEY_BOOT_BG_PATH = "boot_bg_path"
+        private const val KEY_BOOT_MEMORY_BITS = "boot_memory_bits"
     }
 
     data class CachedCurrencyData(
