@@ -2,11 +2,8 @@ package com.example.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -120,54 +117,18 @@ fun BouncyPopupMenu(
     borderColor: Color = CucalcusTheme.colors.border,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val reducedMotion = CucalcusTheme.reducedMotion
-    val expandedState = remember { MutableTransitionState(false) }
-    expandedState.targetState = expanded
-
-    if (expandedState.currentState || expandedState.targetState) {
+    if (expanded) {
         Popup(
             alignment = alignment,
             onDismissRequest = onDismissRequest,
             properties = PopupProperties(focusable = true)
         ) {
-            val transition = rememberTransition(expandedState, label = "bouncy_popup_transition")
-            val scale by transition.animateFloat(
-                transitionSpec = {
-                    if (reducedMotion) tween(0)
-                    else tween(
-                        durationMillis = if (targetState) 105 else 75,
-                        easing = FastOutSlowInEasing
-                    )
-                },
-                label = "bouncy_popup_scale"
-            ) { isOpen ->
-                if (isOpen) 1f else 0.96f
-            }
-            val alpha by transition.animateFloat(
-                transitionSpec = {
-                    if (reducedMotion) tween(0)
-                    else tween(
-                        durationMillis = if (targetState) 95 else 65,
-                        easing = FastOutSlowInEasing
-                    )
-                },
-                label = "bouncy_popup_alpha"
-            ) { isOpen ->
-                if (isOpen) 1f else 0f
-            }
-
             Surface(
                 shape = shape,
                 color = containerColor,
                 border = BorderStroke(1.dp, borderColor),
                 shadowElevation = 10.dp,
                 modifier = modifier
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        this.alpha = alpha
-                        this.transformOrigin = transformOrigin
-                    }
             ) {
                 Column(content = content)
             }
