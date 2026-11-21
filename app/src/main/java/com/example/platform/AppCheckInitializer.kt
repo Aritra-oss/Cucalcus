@@ -120,6 +120,7 @@ fun configureAppCheck(context: Context, intent: Intent?) {
 
         if (BuildConfig.DEBUG) {
             val debugToken = intent?.getStringExtra(DEBUG_TOKEN_EXTRA)
+                ?: BuildConfig.FIREBASE_APPCHECK_DEBUG_TOKEN.takeIf { it.isNotBlank() }
 
             if (!debugToken.isNullOrEmpty()) {
                 val persistenceKey = firebaseApp.persistenceKey
