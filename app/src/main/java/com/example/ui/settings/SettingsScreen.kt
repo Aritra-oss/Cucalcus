@@ -901,7 +901,7 @@ if (isPreparingSettings) {
         )
     }
 }
-
+}
 @Composable
 private fun SettingsSwitchGroupCard(
     content: @Composable ColumnScope.() -> Unit
