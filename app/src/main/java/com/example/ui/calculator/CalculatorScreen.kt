@@ -921,7 +921,7 @@ private fun CalculatorDisplayPanel(
                                         }
                                     }
                                     Text(
-                                        text = "Your question will be added to Gemini. You may need to tap Send there.",
+                                        text = "Gemini will try to prefill your question. If it opens without it, paste your question manually.",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = colors.secondaryText,
                                         modifier = Modifier.padding(top = 7.dp)
