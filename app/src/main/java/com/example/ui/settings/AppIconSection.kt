@@ -91,8 +91,12 @@ object BrandIconBitmapCache {
         if (isWarmedUp && cache.size >= AppIconOption.entries.size) return
         withContext(Dispatchers.IO) {
             val res = context.resources
+            // The previews are rendered at roughly 70dp. Decode a smaller
+            // bitmap instead of keeping 15 full-resolution launcher assets in memory.
             val opts = BitmapFactory.Options().apply {
                 inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                inSampleSize = 2
+                inScaled = false
             }
             for (option in AppIconOption.entries) {
                 val resId = option.drawableRes()
@@ -142,6 +146,12 @@ fun AppIconSelectorSection(
 ) {
     val colors = CucalcusTheme.colors
     var pendingSelection by remember(activeIcon) { mutableStateOf(activeIcon) }
+    // Build the 2 category lists once; selection changes should not recreate them.
+    val optionsByCategory = remember {
+        IconCategory.entries.associateWith { category ->
+            AppIconOption.entries.filter { it.category == category }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SwissSectionHeader(
@@ -206,7 +216,7 @@ fun AppIconSelectorSection(
 
         // Two separate built-in categories in clean 2x2 grids
         IconCategory.entries.forEach { category ->
-            val itemsInCat = AppIconOption.entries.filter { it.category == category }
+            val itemsInCat = optionsByCategory[category].orEmpty()
             Text(
                 text = category.title,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
