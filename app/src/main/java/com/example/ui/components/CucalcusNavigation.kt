@@ -285,7 +285,17 @@ fun InlineCucalcusMenuCard(
         exit = if (reducedMotion) {
             fadeOut(tween(0))
         } else {
-            fadeOut(animationSpec = tween(115)) +
+            // Shrink the menu's measured height during the same exit as its
+            // fade/scale. Without this, the card keeps its full layout height
+            // until the animation ends, then the screen below jumps a second time.
+            shrinkVertically(
+                animationSpec = spring(
+                    dampingRatio = 0.90f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                shrinkTowards = Alignment.Top
+            ) +
+                fadeOut(animationSpec = tween(145)) +
                 scaleOut(
                     animationSpec = spring(
                         dampingRatio = 0.88f,
