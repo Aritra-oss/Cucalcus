@@ -211,7 +211,7 @@ class SettingsRepository(private val context: Context) {
     @Synchronized
     fun consumeAiQuestion(): Int {
         val remaining = aiQuestionsRemainingToday()
-        if (remaining <= 0) return 0
+        if (remaining <= 0) return -1
         val used = AI_DAILY_QUESTION_LIMIT - remaining + 1
         bootPrefs.edit()
             .putInt(KEY_AI_QUOTA_DAY, currentAiQuotaDay())
