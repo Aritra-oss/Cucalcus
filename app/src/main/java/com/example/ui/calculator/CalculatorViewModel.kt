@@ -62,7 +62,8 @@ class CalculatorViewModel(
         CalculatorUiState(
             isScientificExpanded = initialSettings.defaultScientificExpanded,
             angleMode = initialSettings.angleMode,
-            memoryValue = initialSettings.calculatorMemory
+            memoryValue = initialSettings.calculatorMemory,
+            aiQuestionsRemaining = settingsRepository.aiQuestionsRemainingToday()
         )
     )
     private var latestSettings = initialSettings
