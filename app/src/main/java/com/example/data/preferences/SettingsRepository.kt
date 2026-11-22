@@ -188,7 +188,48 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Local AI allowance: ten submitted questions per device installation per
+     * calendar day. Clearing app data or uninstalling resets this preference.
+     */
+    @Synchronized
+    fun aiQuestionsRemainingToday(): Int {
+        val today = currentAiQuotaDay()
+        val savedDay = bootPrefs.getInt(KEY_AI_QUOTA_DAY, -1)
+        if (savedDay != today) {
+            bootPrefs.edit()
+                .putInt(KEY_AI_QUOTA_DAY, today)
+                .putInt(KEY_AI_QUOTA_USED, 0)
+                .apply()
+            return AI_DAILY_QUESTION_LIMIT
+        }
+        return (AI_DAILY_QUESTION_LIMIT - bootPrefs.getInt(KEY_AI_QUOTA_USED, 0))
+            .coerceIn(0, AI_DAILY_QUESTION_LIMIT)
+    }
+
+    /** Atomically consumes one question, returning the remaining count. */
+    @Synchronized
+    fun consumeAiQuestion(): Int {
+        val remaining = aiQuestionsRemainingToday()
+        if (remaining <= 0) return 0
+        val used = AI_DAILY_QUESTION_LIMIT - remaining + 1
+        bootPrefs.edit()
+            .putInt(KEY_AI_QUOTA_DAY, currentAiQuotaDay())
+            .putInt(KEY_AI_QUOTA_USED, used)
+            .commit()
+        return AI_DAILY_QUESTION_LIMIT - used
+    }
+
+    private fun currentAiQuotaDay(): Int {
+        val calendar = java.util.Calendar.getInstance()
+        return calendar.get(java.util.Calendar.YEAR) * 1000 +
+            calendar.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
     companion object {
+        const val AI_DAILY_QUESTION_LIMIT = 10
+        private const val KEY_AI_QUOTA_DAY = "ai_quota_day"
+        private const val KEY_AI_QUOTA_USED = "ai_quota_used"
         private const val BOOT_PREFS_NAME = "cucalcus_boot_settings"
         private const val KEY_BOOT_JSON = "boot_json"
         private const val KEY_BOOT_BG_PATH = "boot_bg_path"
