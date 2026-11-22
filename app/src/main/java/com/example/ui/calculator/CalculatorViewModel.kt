@@ -45,7 +45,8 @@ data class CalculatorUiState(
     val scannedFinalAnswer: String? = null,
     val scanErrorMessage: String? = null,
     val grabbedAnswer: String? = null,
-    val aiQuestionsRemaining: Int = 10
+    val aiQuestionsRemaining: Int = 10,
+    val aiQuotaExceededQuestion: String? = null
 )
 
 class CalculatorViewModel(
@@ -772,19 +773,19 @@ class CalculatorViewModel(
     }
 
     fun solveScannedBitmap(bitmap: Bitmap) {
-        if (!consumeAiQuestionOrShowLimit()) return
+        if (!consumeAiQuestionOrShowLimit("Please solve the math problem shown in the image I scanned in Cucalcus.")) return
         activeAiQuestion = "Scanned image problem"
         collectAiStream(problemScannerRepository.solveProblemFromBitmapStream(bitmap))
     }
 
     fun solveTypedProblem(problemText: String) {
         if (problemText.isBlank()) return
-        if (!consumeAiQuestionOrShowLimit()) return
+        if (!consumeAiQuestionOrShowLimit(problemText.trim())) return
         activeAiQuestion = problemText.trim()
         collectAiStream(problemScannerRepository.solveProblemFromTextStream(problemText))
     }
 
-    private fun consumeAiQuestionOrShowLimit(): Boolean {
+    private fun consumeAiQuestionOrShowLimit(question: String): Boolean {
         val remaining = settingsRepository.consumeAiQuestion()
         _state.update { it.copy(aiQuestionsRemaining = remaining.coerceAtLeast(0)) }
         if (remaining >= 0) return true
@@ -793,7 +794,8 @@ class CalculatorViewModel(
                 isScanningProblem = false,
                 scannedAnswerText = null,
                 scannedFinalAnswer = null,
-                scanErrorMessage = "Daily AI limit reached. Your 10 questions will reset tomorrow."
+                scanErrorMessage = "Your daily AI Mode quota has been exceeded. Your 10 questions reset tomorrow at 12:00 AM (midnight), based on your device's local time.",
+                aiQuotaExceededQuestion = question
             )
         }
         return false
