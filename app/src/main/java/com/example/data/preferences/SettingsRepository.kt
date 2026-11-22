@@ -30,6 +30,7 @@ class SettingsRepository(private val context: Context) {
 
     private val appContext: Context = context.applicationContext ?: context
     private val bootPrefs = appContext.getSharedPreferences(BOOT_PREFS_NAME, Context.MODE_PRIVATE)
+    private val aiQuotaPrefs = appContext.getSharedPreferences(AI_QUOTA_PREFS_NAME, Context.MODE_PRIVATE)
     private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private object Keys {
@@ -195,15 +196,15 @@ class SettingsRepository(private val context: Context) {
     @Synchronized
     fun aiQuestionsRemainingToday(): Int {
         val today = currentAiQuotaDay()
-        val savedDay = bootPrefs.getInt(KEY_AI_QUOTA_DAY, -1)
+        val savedDay = aiQuotaPrefs.getInt(KEY_AI_QUOTA_DAY, -1)
         if (savedDay != today) {
-            bootPrefs.edit()
+            aiQuotaPrefs.edit()
                 .putInt(KEY_AI_QUOTA_DAY, today)
                 .putInt(KEY_AI_QUOTA_USED, 0)
                 .apply()
             return AI_DAILY_QUESTION_LIMIT
         }
-        return (AI_DAILY_QUESTION_LIMIT - bootPrefs.getInt(KEY_AI_QUOTA_USED, 0))
+        return (AI_DAILY_QUESTION_LIMIT - aiQuotaPrefs.getInt(KEY_AI_QUOTA_USED, 0))
             .coerceIn(0, AI_DAILY_QUESTION_LIMIT)
     }
 
@@ -213,7 +214,7 @@ class SettingsRepository(private val context: Context) {
         val remaining = aiQuestionsRemainingToday()
         if (remaining <= 0) return -1
         val used = AI_DAILY_QUESTION_LIMIT - remaining + 1
-        bootPrefs.edit()
+        aiQuotaPrefs.edit()
             .putInt(KEY_AI_QUOTA_DAY, currentAiQuotaDay())
             .putInt(KEY_AI_QUOTA_USED, used)
             .commit()
@@ -231,6 +232,7 @@ class SettingsRepository(private val context: Context) {
         private const val KEY_AI_QUOTA_DAY = "ai_quota_day"
         private const val KEY_AI_QUOTA_USED = "ai_quota_used"
         private const val BOOT_PREFS_NAME = "cucalcus_boot_settings"
+        private const val AI_QUOTA_PREFS_NAME = "ai_daily_quota"
         private const val KEY_BOOT_JSON = "boot_json"
         private const val KEY_BOOT_BG_PATH = "boot_bg_path"
         private const val KEY_BOOT_MEMORY_BITS = "boot_memory_bits"
