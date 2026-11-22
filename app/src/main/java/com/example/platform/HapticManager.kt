@@ -31,17 +31,23 @@ class HapticManager(context: Context) {
         if (!enabled || !isSupported) return
         try {
             val vib = vibrator ?: return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Use Android's native touch-tick primitive first. Some devices
+                // suppress very short custom one-shot vibrations but still play
+                // their system haptic primitive reliably.
+                val effect = when (strength) {
+                    HapticStrength.GENTLE -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
+                    HapticStrength.MEDIUM -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                    HapticStrength.CRISP -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)
+                }
+                vib.vibrate(effect)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val (durationMs, amplitude) = when (strength) {
-                    HapticStrength.GENTLE -> 10L to 65
-                    HapticStrength.MEDIUM -> 16L to 140
-                    HapticStrength.CRISP -> 24L to 235
+                    HapticStrength.GENTLE -> 12L to 75
+                    HapticStrength.MEDIUM -> 20L to 150
+                    HapticStrength.CRISP -> 28L to 235
                 }
-                val effectiveAmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vib.hasAmplitudeControl()) {
-                    amplitude
-                } else {
-                    VibrationEffect.DEFAULT_AMPLITUDE
-                }
+                val effectiveAmp = if (vib.hasAmplitudeControl()) amplitude else VibrationEffect.DEFAULT_AMPLITUDE
                 vib.vibrate(VibrationEffect.createOneShot(durationMs, effectiveAmp))
             } else {
                 @Suppress("DEPRECATION")
