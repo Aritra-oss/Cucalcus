@@ -76,6 +76,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.PlatformTextInputInterceptor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -121,6 +122,12 @@ fun CalculatorScreen(
     val navActions = LocalCucalcusNavActions.current
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    var isAiAnswerExpanded by remember { mutableStateOf(false) }
+    val isAiAnswerVisible = state.isScanningProblem || state.scannedAnswerText != null || state.scanErrorMessage != null
+
+    LaunchedEffect(isAiAnswerVisible) {
+        if (!isAiAnswerVisible) isAiAnswerExpanded = false
+    }
 
     LaunchedEffect(Unit) {
         val clip = clipboard.getText()?.text
@@ -285,6 +292,8 @@ fun CalculatorScreen(
                             onShowMessage(msg)
                         },
                         onClearScan = viewModel::clearScanResult,
+                        isExpanded = false,
+                        onToggleExpanded = { isAiAnswerExpanded = !isAiAnswerExpanded },
                         modifier = Modifier.weight(1f)
                     )
                     MemoryControlRow(
@@ -377,6 +386,8 @@ fun CalculatorScreen(
                         onShowMessage(msg)
                     },
                     onClearScan = viewModel::clearScanResult,
+                    isExpanded = false,
+                    onToggleExpanded = { isAiAnswerExpanded = !isAiAnswerExpanded },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(0.34f)
@@ -425,6 +436,23 @@ fun CalculatorScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            // Draw the enlarged AI answer above the calculator so the keypad is
+            // fully covered, while keeping the original screen state underneath.
+            if (isAiAnswerExpanded && isAiAnswerVisible) {
+                CalculatorDisplayPanel(
+                    state = state,
+                    settings = settings,
+                    onCursorPositionChange = viewModel::onCursorPositionChange,
+                    onToggleCursorLock = {},
+                    onClearScan = viewModel::clearScanResult,
+                    isExpanded = true,
+                    onToggleExpanded = { isAiAnswerExpanded = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(5f)
+                )
             }
         }
     }
@@ -619,6 +647,8 @@ private fun CalculatorDisplayPanel(
     onCursorPositionChange: (Int) -> Unit,
     onToggleCursorLock: () -> Unit,
     onClearScan: () -> Unit,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = CucalcusTheme.colors
@@ -747,6 +777,20 @@ private fun CalculatorDisplayPanel(
                                 )
                             }
                         }
+                        BouncySurface(
+                            onClick = onToggleExpanded,
+                            shape = RoundedCornerShape(50),
+                            color = colors.cardBg,
+                            border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.55f)),
+                            modifier = Modifier.testTag(if (isExpanded) "close_ai_answer_button" else "expand_ai_answer_button")
+                        ) {
+                            Text(
+                                text = if (isExpanded) "CLOSE" else "EXPAND",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = colors.accent,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                            )
+                        }
                     } else if (hasMemory) {
                         val formattedMem = NumberFormatter.formatResult(
                             state.memoryValue,
@@ -769,7 +813,8 @@ private fun CalculatorDisplayPanel(
                         }
                     }
 
-                    // Corner cursor lock button
+                    // Cursor locking is only relevant to the calculator expression.
+                    if (!isScanMode) {
                     BouncySurface(
                         onClick = onToggleCursorLock,
                         shape = RoundedCornerShape(50),
@@ -793,6 +838,7 @@ private fun CalculatorDisplayPanel(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
+                    }
                     }
                 }
             }
