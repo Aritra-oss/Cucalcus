@@ -34,6 +34,23 @@ class HistoryRepository(private val historyDao: HistoryDao) {
         )
     }
 
+    /**
+     * Stores a complete AI conversation in the existing history list.
+     * The prompt is shown as the expression and the unabridged response as the result.
+     */
+    suspend fun saveAiConversation(question: String, fullAnswer: String) {
+        if (question.isBlank() || fullAnswer.isBlank()) return
+        historyDao.insert(
+            CalculationHistoryEntity(
+                expression = "AI Question: ${question.trim()}",
+                result = fullAnswer.trim(),
+                rawResult = 0.0,
+                angleMode = "AI",
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
     suspend fun setFavorite(id: Long, isFavorite: Boolean) = historyDao.setFavorite(id, isFavorite)
     suspend fun setPinned(id: Long, isPinned: Boolean) = historyDao.setPinned(id, isPinned)
     suspend fun deleteById(id: Long) = historyDao.deleteById(id)
