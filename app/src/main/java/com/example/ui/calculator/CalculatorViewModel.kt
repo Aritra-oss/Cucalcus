@@ -786,8 +786,8 @@ class CalculatorViewModel(
 
     private fun consumeAiQuestionOrShowLimit(): Boolean {
         val remaining = settingsRepository.consumeAiQuestion()
-        _state.update { it.copy(aiQuestionsRemaining = remaining) }
-        if (remaining >= 0 && remaining < SettingsRepository.AI_DAILY_QUESTION_LIMIT) return true
+        _state.update { it.copy(aiQuestionsRemaining = remaining.coerceAtLeast(0)) }
+        if (remaining >= 0) return true
         _state.update {
             it.copy(
                 isScanningProblem = false,
