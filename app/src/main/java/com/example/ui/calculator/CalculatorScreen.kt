@@ -3,6 +3,7 @@ package com.example.ui.calculator
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -653,6 +654,7 @@ private fun CalculatorDisplayPanel(
     modifier: Modifier = Modifier
 ) {
     val colors = CucalcusTheme.colors
+    val context = LocalContext.current
     val displayFont = LocalDisplayFontFamily.current
     val focusManager = LocalFocusManager.current
 
@@ -889,7 +891,11 @@ private fun CalculatorDisplayPanel(
                                             runCatching {
                                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(geminiUrl)))
                                             }.onFailure {
-                                                onShowMessage("Couldn't open Google Gemini. Please try again.")
+                                                Toast.makeText(
+                                                    context,
+                                                    "Couldn't open Google Gemini. Please try again.",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                         },
                                         shape = RoundedCornerShape(14.dp),
