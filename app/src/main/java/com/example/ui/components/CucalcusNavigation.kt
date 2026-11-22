@@ -266,22 +266,40 @@ fun InlineCucalcusMenuCard(
         } else {
             // Keep the popup animation on the graphics layer. Animating its
             // measured height causes repeated full-card relayouts and feels sticky.
-            fadeIn(animationSpec = tween(170)) +
+            fadeIn(animationSpec = tween(145)) +
                 scaleIn(
-                    animationSpec = tween(190),
-                    initialScale = 0.96f,
+                    animationSpec = spring(
+                        dampingRatio = 0.72f,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    initialScale = 0.88f,
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-                )
+                ) +
+                androidx.compose.animation.slideInVertically(
+                    animationSpec = spring(
+                        dampingRatio = 0.78f,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) { -it / 12 }
         },
         exit = if (reducedMotion) {
             fadeOut(tween(0))
         } else {
-            fadeOut(animationSpec = tween(125)) +
+            fadeOut(animationSpec = tween(115)) +
                 scaleOut(
-                    animationSpec = tween(145),
-                    targetScale = 0.985f,
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    targetScale = 0.94f,
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-                )
+                ) +
+                androidx.compose.animation.slideOutVertically(
+                    animationSpec = spring(
+                        dampingRatio = 0.86f,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) { -it / 24 }
         },
         modifier = modifier
     ) {

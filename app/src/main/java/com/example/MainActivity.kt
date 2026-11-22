@@ -239,15 +239,15 @@ class MainActivity : ComponentActivity() {
                 // The small horizontal offset is deliberately subtle so navigation feels
                 // connected without looking like separate, sequential animations.
                 val routeFadeSpring = androidx.compose.animation.core.spring<Float>(
-                    dampingRatio = 0.92f,
+                    dampingRatio = 0.86f,
                     stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 )
                 val routeScaleSpring = androidx.compose.animation.core.spring<Float>(
-                    dampingRatio = 0.90f,
+                    dampingRatio = 0.84f,
                     stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 )
                 val routeSlideSpring = androidx.compose.animation.core.spring<IntOffset>(
-                    dampingRatio = 0.94f,
+                    dampingRatio = 0.86f,
                     stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 )
 
@@ -313,7 +313,7 @@ class MainActivity : ComponentActivity() {
                                                 scaleIn(routeScaleSpring, initialScale = 0.975f) +
                                                 androidx.compose.animation.slideInHorizontally(
                                                     animationSpec = routeSlideSpring
-                                                ) { fullWidth -> fullWidth / 18 }
+                                                ) { fullWidth -> fullWidth / 10 }
                                         }
                                     },
                                     exitTransition = {
@@ -324,7 +324,7 @@ class MainActivity : ComponentActivity() {
                                                 scaleOut(routeScaleSpring, targetScale = 0.99f) +
                                                 androidx.compose.animation.slideOutHorizontally(
                                                     animationSpec = routeSlideSpring
-                                                ) { fullWidth -> -fullWidth / 22 }
+                                                ) { fullWidth -> -fullWidth / 12 }
                                         }
                                     },
                                     popEnterTransition = {
@@ -335,7 +335,7 @@ class MainActivity : ComponentActivity() {
                                                 scaleIn(routeScaleSpring, initialScale = 0.975f) +
                                                 androidx.compose.animation.slideInHorizontally(
                                                     animationSpec = routeSlideSpring
-                                                ) { fullWidth -> -fullWidth / 18 }
+                                                ) { fullWidth -> -fullWidth / 10 }
                                         }
                                     },
                                     popExitTransition = {
@@ -346,7 +346,7 @@ class MainActivity : ComponentActivity() {
                                                 scaleOut(routeScaleSpring, targetScale = 0.99f) +
                                                 androidx.compose.animation.slideOutHorizontally(
                                                     animationSpec = routeSlideSpring
-                                                ) { fullWidth -> fullWidth / 22 }
+                                                ) { fullWidth -> fullWidth / 12 }
                                         }
                                     }
                                 ) {
