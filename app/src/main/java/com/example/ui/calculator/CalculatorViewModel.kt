@@ -503,7 +503,8 @@ class CalculatorViewModel(
                 isScanningProblem = false,
                 scannedAnswerText = null,
                 scannedFinalAnswer = null,
-                scanErrorMessage = null
+                scanErrorMessage = null,
+                aiQuotaExceededQuestion = null
             )
         }
     }
@@ -814,6 +815,7 @@ class CalculatorViewModel(
                                 scannedAnswerText = "",
                                 scannedFinalAnswer = null,
                                 scanErrorMessage = null,
+                                aiQuotaExceededQuestion = null,
                                 errorMessage = null
                             )
                         }
@@ -881,7 +883,8 @@ class CalculatorViewModel(
                 isScanningProblem = false,
                 scannedAnswerText = null,
                 scannedFinalAnswer = null,
-                scanErrorMessage = null
+                scanErrorMessage = null,
+                aiQuotaExceededQuestion = null
             )
         } else {
             this
