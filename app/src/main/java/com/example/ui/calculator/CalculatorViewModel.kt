@@ -55,6 +55,7 @@ class CalculatorViewModel(
 ) : ViewModel() {
 
     private var scanJob: Job? = null
+    private var activeAiQuestion: String = ""
     private val initialSettings = settingsRepository.currentSettings
     private val _state = MutableStateFlow(
         CalculatorUiState(
@@ -769,10 +770,12 @@ class CalculatorViewModel(
     }
 
     fun solveScannedBitmap(bitmap: Bitmap) {
+        activeAiQuestion = "Scanned image problem"
         collectAiStream(problemScannerRepository.solveProblemFromBitmapStream(bitmap))
     }
 
     fun solveTypedProblem(problemText: String) {
+        activeAiQuestion = problemText.trim()
         collectAiStream(problemScannerRepository.solveProblemFromTextStream(problemText))
     }
 
@@ -810,6 +813,11 @@ class CalculatorViewModel(
                                 scannedFinalAnswer = event.finalAnswer,
                                 scanErrorMessage = null
                             )
+                        }
+                        val question = activeAiQuestion
+                        if (question.isNotBlank() && event.fullText.isNotBlank()) {
+                            historyRepository.saveAiConversation(question, event.fullText)
+                            activeAiQuestion = ""
                         }
                     }
                     is ScanProblemStreamEvent.Error -> {
