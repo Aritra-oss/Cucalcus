@@ -44,7 +44,8 @@ data class CalculatorUiState(
     val scannedAnswerText: String? = null,
     val scannedFinalAnswer: String? = null,
     val scanErrorMessage: String? = null,
-    val grabbedAnswer: String? = null
+    val grabbedAnswer: String? = null,
+    val aiQuestionsRemaining: Int = 10
 )
 
 class CalculatorViewModel(
