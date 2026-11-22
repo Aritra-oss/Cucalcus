@@ -381,8 +381,12 @@ fun InlineCucalcusMenuCard(
                         isSelected = isAiModeExpanded,
                         isAccentStyle = true,
                         onClick = {
-                            isAiModeExpanded = !isAiModeExpanded
-                            if (!isAiModeExpanded) {
+                            val expandingAiMode = !isAiModeExpanded
+                            isAiModeExpanded = expandingAiMode
+                            // Keep the nested input in place while the AI section
+                            // collapses. The parent shrink then owns the height change,
+                            // avoiding two consecutive upward shifts.
+                            if (expandingAiMode) {
                                 isTypeProblemInputVisible = false
                             }
                         },
