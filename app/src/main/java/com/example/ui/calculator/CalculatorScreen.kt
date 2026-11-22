@@ -738,6 +738,13 @@ private fun CalculatorDisplayPanel(
                             ),
                             color = colors.accent
                         )
+                        Text(
+                            text = "${state.aiQuestionsRemaining}/${com.example.data.preferences.SettingsRepository.AI_DAILY_QUESTION_LIMIT} left",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = if (state.aiQuestionsRemaining <= 2) colors.accent else colors.secondaryText
+                        )
                     }
                 } else {
                     Text(
