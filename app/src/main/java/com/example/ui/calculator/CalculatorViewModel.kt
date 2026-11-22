@@ -772,13 +772,31 @@ class CalculatorViewModel(
     }
 
     fun solveScannedBitmap(bitmap: Bitmap) {
+        if (!consumeAiQuestionOrShowLimit()) return
         activeAiQuestion = "Scanned image problem"
         collectAiStream(problemScannerRepository.solveProblemFromBitmapStream(bitmap))
     }
 
     fun solveTypedProblem(problemText: String) {
+        if (problemText.isBlank()) return
+        if (!consumeAiQuestionOrShowLimit()) return
         activeAiQuestion = problemText.trim()
         collectAiStream(problemScannerRepository.solveProblemFromTextStream(problemText))
+    }
+
+    private fun consumeAiQuestionOrShowLimit(): Boolean {
+        val remaining = settingsRepository.consumeAiQuestion()
+        _state.update { it.copy(aiQuestionsRemaining = remaining) }
+        if (remaining >= 0 && remaining < SettingsRepository.AI_DAILY_QUESTION_LIMIT) return true
+        _state.update {
+            it.copy(
+                isScanningProblem = false,
+                scannedAnswerText = null,
+                scannedFinalAnswer = null,
+                scanErrorMessage = "Daily AI limit reached. Your 10 questions will reset tomorrow."
+            )
+        }
+        return false
     }
 
     private fun collectAiStream(flow: kotlinx.coroutines.flow.Flow<ScanProblemStreamEvent>) {
