@@ -3,6 +3,7 @@ package com.example.ui.calculator
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -880,6 +881,52 @@ private fun CalculatorDisplayPanel(
                                         .fillMaxWidth()
                                         .testTag("scanned_answer_text")
                                 )
+                                if (!state.aiQuotaExceededQuestion.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    BouncySurface(
+                                        onClick = {
+                                            val geminiUrl = "https://gemini.google.com/app?prompt=${Uri.encode(state.aiQuotaExceededQuestion)}"
+                                            runCatching {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(geminiUrl)))
+                                            }.onFailure {
+                                                onShowMessage("Couldn't open Google Gemini. Please try again.")
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = colors.accent.copy(alpha = 0.16f),
+                                        border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.65f)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("open_gemini_with_question_button")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 13.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.AutoAwesome,
+                                                contentDescription = null,
+                                                tint = colors.accent,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Continue with Google Gemini",
+                                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                                color = colors.accent
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "Your question will be added to Gemini. You may need to tap Send there.",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.secondaryText,
+                                        modifier = Modifier.padding(top = 7.dp)
+                                    )
+                                }
                             }
                         }
                         else -> {
