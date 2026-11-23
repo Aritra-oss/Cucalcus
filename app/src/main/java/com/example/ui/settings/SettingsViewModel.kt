@@ -11,6 +11,7 @@ import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.ButtonShapeOption
 import com.example.data.preferences.CucalcusSettings
 import com.example.data.preferences.DisplayBoxAnimation
+import com.example.data.preferences.ButtonAnimation
 import com.example.data.preferences.FontOption
 import com.example.data.preferences.HapticStrength
 import com.example.data.preferences.KeypadArrangement
@@ -78,9 +79,12 @@ class SettingsViewModel(
         }
     }
 
-    fun setDisplayBoxAnimation(animation: DisplayBoxAnimation) {
-        viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayBoxAnimation = animation) } }
-    }
+    fun setDisplayBoxAnimation(animation: DisplayBoxAnimation) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayBoxAnimation = animation) } } }
+    fun setDisplayBoxAnimationsEnabled(enabled: Boolean) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayBoxAnimationsEnabled = enabled) } } }
+    fun setDisplayBoxAnimationPaused(paused: Boolean) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayBoxAnimationPaused = paused) } } }
+    fun setButtonAnimation(animation: ButtonAnimation) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(buttonAnimation = animation) } } }
+    fun setButtonAnimationsEnabled(enabled: Boolean) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(buttonAnimationsEnabled = enabled) } } }
+    fun setButtonAnimationPaused(paused: Boolean) { viewModelScope.launch { settingsRepository.updateSettings { it.copy(buttonAnimationPaused = paused) } } }
 
     fun setDisplayFont(font: FontOption) {
         viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayFont = font) } }
