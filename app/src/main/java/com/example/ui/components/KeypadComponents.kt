@@ -217,6 +217,26 @@ fun CalculatorKeyButton(
                             val y = size.height * (0.5f + 0.16f * kotlin.math.cos(p * 6.28f))
                             drawCircle(baseText.copy(alpha = 0.12f), size.minDimension * 0.22f, Offset(x, y))
                         }
+                        ButtonAnimation.COLOR_BREATH -> {
+                            val breath = 0.5f + 0.5f * kotlin.math.sin(p * 6.28f)
+                            drawRect(baseText.copy(alpha = 0.035f + breath * 0.10f))
+                            drawCircle(baseText.copy(alpha = 0.10f + breath * 0.08f), size.minDimension * (0.18f + breath * 0.08f), center)
+                        }
+                        ButtonAnimation.EDGE_GLOW -> {
+                            val edge = (p * 4f) % 4f
+                            val x = if (edge < 1f) size.width * edge else if (edge < 3f) size.width * (3f - edge) else size.width * (edge - 3f)
+                            val y = if (edge < 1f) 0f else if (edge < 2f) size.height * (edge - 1f) else if (edge < 3f) size.height else size.height * (4f - edge)
+                            drawCircle(baseText.copy(alpha = 0.22f), size.minDimension * 0.16f, Offset(x, y))
+                            drawRect(baseText.copy(alpha = 0.045f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+                        }
+                        ButtonAnimation.SPARK_TRAIL -> {
+                            for (spark in 0..6) {
+                                val t = (p + spark * 0.13f) % 1f
+                                val x = size.width * t
+                                val y = size.height * (0.5f + 0.25f * kotlin.math.sin((t * 2f + spark) * 6.28f))
+                                drawCircle(baseText.copy(alpha = 0.20f * (1f - t)), size.minDimension * (0.025f + (spark % 2) * 0.012f), Offset(x, y))
+                            }
+                        }
                     }
                 }
             }
