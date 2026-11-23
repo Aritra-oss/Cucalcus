@@ -1212,10 +1212,10 @@ private fun ButtonAnimationPreviewChoice(title: String, selected: Boolean, accen
                             "Ripple" -> for (i in 0..2) drawCircle(accent.copy(alpha = 0.3f), size.minDimension * ((p + i * 0.33f) % 1f) * 0.5f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
                             "Floating Glow", "Aurora Trail" -> drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.4f), Color.Transparent), Offset(size.width * p, size.height / 2), size.height), size.height, Offset(size.width * p, size.height / 2))
                             "Color Breath" -> drawCircle(accent.copy(alpha = 0.16f + 0.16f * kotlin.math.sin(p * 6.28f)), size.minDimension * (0.22f + 0.08f * kotlin.math.sin(p * 6.28f)), center)
-                            "Edge Glow" -> {
-                                val x = size.width * p
-                                drawLine(accent.copy(alpha = 0.7f), Offset(x, 2.dp.toPx()), Offset(x, size.height - 2.dp.toPx()), 3.dp.toPx())
-                                drawRect(accent.copy(alpha = 0.3f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                            "Inner Glow" -> {
+                                val point = Offset(size.width * (0.18f + 0.64f * p), size.height * (0.5f + 0.12f * kotlin.math.sin(p * 6.28f)))
+                                val radius = size.minDimension * 0.62f
+                                drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.42f), accent.copy(alpha = 0.12f), Color.Transparent), point, radius), radius, point)
                             }
                             "Spark Trail" -> for (i in 0..5) {
                                 val t = (p + i * 0.14f) % 1f
