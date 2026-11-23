@@ -579,7 +579,7 @@ if (isPreparingSettings) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("CHOOSE YOUR DISPLAY EFFECT", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 DisplayBoxAnimation.entries.forEach { animation ->
-                                    AnimationPreviewChoice(animation.label, settings.displayBoxAnimation == animation, colors.accent, { viewModel.setDisplayBoxAnimation(animation) }, animationPreviewPhase)
+                                    AnimationPreviewChoice(animation.label, settings.displayBoxAnimation == animation, colors.accent, { viewModel.setDisplayBoxAnimation(animation) }, if (settings.displayBoxAnimation == animation) animationPreviewPhase else 0f)
                                 }
                             }
                         }
@@ -605,7 +605,7 @@ if (isPreparingSettings) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("CHOOSE YOUR BUTTON EFFECT", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 ButtonAnimation.entries.forEach { animation ->
-                                    ButtonAnimationPreviewChoice(animation.label, settings.buttonAnimation == animation, colors.accent, { viewModel.setButtonAnimation(animation) }, animationPreviewPhase)
+                                    ButtonAnimationPreviewChoice(animation.label, settings.buttonAnimation == animation, colors.accent, { viewModel.setButtonAnimation(animation) }, if (settings.buttonAnimation == animation) animationPreviewPhase else 0f)
                                 }
                             }
                         }
