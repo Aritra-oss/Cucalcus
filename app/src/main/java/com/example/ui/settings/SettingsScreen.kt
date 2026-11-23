@@ -20,6 +20,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,6 +82,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
@@ -102,6 +105,7 @@ import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.ButtonShapeOption
 import com.example.data.preferences.CucalcusSettings
 import com.example.data.preferences.DisplayBoxAnimation
+import com.example.data.preferences.ButtonAnimation
 import com.example.data.preferences.FontOption
 import com.example.data.preferences.HapticStrength
 import com.example.data.preferences.KeypadArrangement
@@ -143,6 +147,8 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
+    val animationPreviewTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "settings_animation_previews")
+    val animationPreviewPhase by animationPreviewTransition.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(3600, easing = androidx.compose.animation.core.LinearEasing)), label = "settings_preview_phase")
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -543,17 +549,28 @@ if (isPreparingSettings) {
                         subtitle = "Keypad layout, precision, number formatting & vibration"
                     )
 
-                    SettingSubLabel("Display Box Animation")
-                    Text(
-                        text = "Choose a continuously running effect for the calculator display. Changes apply instantly.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.secondaryText
-                    )
-                    ChipSelectionRow(
-                        items = DisplayBoxAnimation.entries.map { it to it.label },
-                        selected = settings.displayBoxAnimation,
-                        onSelect = viewModel::setDisplayBoxAnimation
-                    )
+                    SwissSectionHeader(title = "Display Box Animations", subtitle = "Ambient effects inside the calculator display")
+                    SettingsSwitchGroupCard {
+                        SettingSwitchItem(title = "Enable display animations", subtitle = "Turn on the selected display effect", checked = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationsEnabled)
+                        HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
+                        SettingSwitchItem(title = "Pause animation", subtitle = "Keep the effect visible without movement", checked = settings.displayBoxAnimationPaused, enabled = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationPaused)
+                    }
+                    Text("Choose an effect · tap a preview to select", style = MaterialTheme.typography.bodySmall, color = colors.secondaryText)
+                    DisplayBoxAnimation.entries.forEach { animation ->
+                        AnimationPreviewChoice(animation.label, settings.displayBoxAnimation == animation, colors.accent, { viewModel.setDisplayBoxAnimation(animation) }, animationPreviewPhase)
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+                    SwissSectionHeader(title = "Button Animations", subtitle = "Subtle motion effects for calculator keys")
+                    SettingsSwitchGroupCard {
+                        SettingSwitchItem(title = "Enable button animations", subtitle = "Apply the selected effect to calculator keys", checked = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationsEnabled)
+                        HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
+                        SettingSwitchItem(title = "Pause animation", subtitle = "Keep the selected button effect visible without movement", checked = settings.buttonAnimationPaused, enabled = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationPaused)
+                    }
+                    Text("Choose a button effect · tap a preview to select", style = MaterialTheme.typography.bodySmall, color = colors.secondaryText)
+                    ButtonAnimation.entries.forEach { animation ->
+                        ButtonAnimationPreviewChoice(animation.label, settings.buttonAnimation == animation, colors.accent, { viewModel.setButtonAnimation(animation) }, animationPreviewPhase)
+                    }
 
                     SettingsSwitchGroupCard {
                         SettingSwitchItem(
@@ -1134,6 +1151,62 @@ private fun CustomColorPickerDialog(
             }
         }
     )
+}
+
+
+@Composable
+private fun AnimationPreviewChoice(title: String, selected: Boolean, accent: Color, onClick: () -> Unit, phase: Float) {
+    val colors = CucalcusTheme.colors
+    BouncySurface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = if (selected) accent.copy(alpha = 0.10f) else colors.cardBg, border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) accent else colors.border)) {
+        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(width = 116.dp, height = 54.dp).clip(RoundedCornerShape(10.dp)).background(colors.secondaryBg)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val x = size.width * phase
+                    when (title) {
+                        "Flowing Wave", "Aurora Flow" -> for (i in 0..2) drawLine(accent.copy(alpha = 0.28f - i * 0.05f), Offset(0f, size.height * (0.35f + i * 0.18f)), Offset(size.width, size.height * (0.35f + i * 0.18f) + kotlin.math.sin(phase * 6.28f + i) * 7f), strokeWidth = 3.dp.toPx())
+                        "Shimmer Sweep" -> drawRect(Brush.linearGradient(listOf(Color.Transparent, accent.copy(alpha = 0.35f), Color.Transparent), Offset(x * 1.4f - 30f, 0f), Offset(x * 1.4f + 30f, size.height)))
+                        "Floating Orbs" -> for (i in 0..3) drawCircle(accent.copy(alpha = 0.25f), 5.dp.toPx(), Offset(size.width * (0.15f + i * 0.22f), size.height * (0.5f + kotlin.math.sin(phase * 6.28f + i) * 0.2f)))
+                        "Moving Grid" -> for (i in 0..5) drawLine(accent.copy(alpha = 0.2f), Offset(i * 24f + x * 18f % 24f, 0f), Offset(i * 24f + x * 18f % 24f, size.height), 1.dp.toPx())
+                        "Liquid Glow" -> drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.35f), Color.Transparent), Offset(x, size.height / 2), size.height), size.height, Offset(x, size.height / 2))
+                        else -> for (i in 0..18) drawCircle(accent.copy(alpha = 0.25f), 1.5.dp.toPx(), Offset((i * 23f + x * 20f) % size.width, (i * 13f) % size.height))
+                    }
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                Text(if (selected) "Selected" else "Tap to select", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText)
+            }
+            if (selected) Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = accent)
+        }
+    }
+}
+
+@Composable
+private fun ButtonAnimationPreviewChoice(title: String, selected: Boolean, accent: Color, onClick: () -> Unit, phase: Float) {
+    val colors = CucalcusTheme.colors
+    BouncySurface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = if (selected) accent.copy(alpha = 0.10f) else colors.cardBg, border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) accent else colors.border)) {
+        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(width = 116.dp, height = 54.dp).clip(RoundedCornerShape(10.dp)).background(colors.secondaryBg), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(width = 64.dp, height = 34.dp).clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.16f))) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val p = phase
+                        when (title) {
+                            "Soft Pulse" -> drawCircle(accent.copy(alpha = 0.22f), size.minDimension * (0.24f + 0.08f * kotlin.math.sin(p * 6.28f)), center)
+                            "Shimmer" -> drawRect(Brush.linearGradient(listOf(Color.Transparent, accent.copy(alpha = 0.55f), Color.Transparent), Offset(size.width * (p - 0.3f), 0f), Offset(size.width * (p + 0.3f), size.height)))
+                            "Ripple" -> for (i in 0..2) drawCircle(accent.copy(alpha = 0.3f), size.minDimension * ((p + i * 0.33f) % 1f) * 0.5f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                            "Floating Glow", "Aurora Trail" -> drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.4f), Color.Transparent), Offset(size.width * p, size.height / 2), size.height), size.height, Offset(size.width * p, size.height / 2))
+                            else -> drawCircle(accent.copy(alpha = 0.35f), size.minDimension * 0.2f, Offset(size.width * (0.5f + 0.2f * kotlin.math.sin(p * 6.28f)), size.height / 2))
+                        }
+                    }
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = colors.primaryText)
+                Text(if (selected) "Selected" else "Tap to select", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText)
+            }
+            if (selected) Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = accent)
+        }
+    }
 }
 
 @Composable
