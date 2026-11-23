@@ -107,12 +107,12 @@ enum class HapticStrength(val label: String) {
 }
 
 enum class DisplayBoxAnimation(val label: String) {
-    NONE("Off"),
-    FLOWING_WAVE("Flowing Wave"),
-    SHIMMER_SWEEP("Shimmer Sweep"),
-    FLOATING_ORBS("Floating Orbs"),
-    AURORA_FLOW("Aurora Flow"),
-    MOVING_GRID("Moving Grid")
+    FLOWING_WAVE("Flowing Wave"), SHIMMER_SWEEP("Shimmer Sweep"), FLOATING_ORBS("Floating Orbs"),
+    AURORA_FLOW("Aurora Flow"), MOVING_GRID("Moving Grid"), LIQUID_GLOW("Liquid Glow"), STAR_DUST("Star Dust")
+}
+
+enum class ButtonAnimation(val label: String) {
+    SOFT_PULSE("Soft Pulse"), SHIMMER("Shimmer"), RIPPLE("Ripple"), FLOATING_GLOW("Floating Glow"), AURORA("Aurora Trail"), MAGNETIC("Magnetic Drift")
 }
 
 enum class IconCategory(val title: String) {
@@ -277,6 +277,11 @@ data class CucalcusSettings(
 
     val selectedIcon: AppIconOption = AppIconOption.NORMAL_GREEN,
     val displayBoxAnimation: DisplayBoxAnimation = DisplayBoxAnimation.FLOWING_WAVE,
+    val displayBoxAnimationsEnabled: Boolean = false,
+    val displayBoxAnimationPaused: Boolean = false,
+    val buttonAnimation: ButtonAnimation = ButtonAnimation.SOFT_PULSE,
+    val buttonAnimationsEnabled: Boolean = false,
+    val buttonAnimationPaused: Boolean = false,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long
@@ -316,6 +321,11 @@ data class CucalcusSettings(
         json.put("hapticStrength", hapticStrength.name)
         json.put("selectedIcon", selectedIcon.name)
         json.put("displayBoxAnimation", displayBoxAnimation.name)
+        json.put("displayBoxAnimationsEnabled", displayBoxAnimationsEnabled)
+        json.put("displayBoxAnimationPaused", displayBoxAnimationPaused)
+        json.put("buttonAnimation", buttonAnimation.name)
+        json.put("buttonAnimationsEnabled", buttonAnimationsEnabled)
+        json.put("buttonAnimationPaused", buttonAnimationPaused)
         return json.toString(2)
     }
 
@@ -357,7 +367,12 @@ data class CucalcusSettings(
                         hapticEnabled = j.optBoolean("hapticEnabled", defaults.hapticEnabled),
                         hapticStrength = enumOrDefault(j.optString("hapticStrength"), defaults.hapticStrength),
                         selectedIcon = enumOrDefault(j.optString("selectedIcon"), defaults.selectedIcon),
-                        displayBoxAnimation = enumOrDefault(j.optString("displayBoxAnimation"), defaults.displayBoxAnimation)
+                        displayBoxAnimation = enumOrDefault(j.optString("displayBoxAnimation"), defaults.displayBoxAnimation),
+                        displayBoxAnimationsEnabled = j.optBoolean("displayBoxAnimationsEnabled", defaults.displayBoxAnimationsEnabled),
+                        displayBoxAnimationPaused = j.optBoolean("displayBoxAnimationPaused", defaults.displayBoxAnimationPaused),
+                        buttonAnimation = enumOrDefault(j.optString("buttonAnimation"), defaults.buttonAnimation),
+                        buttonAnimationsEnabled = j.optBoolean("buttonAnimationsEnabled", defaults.buttonAnimationsEnabled),
+                        buttonAnimationPaused = j.optBoolean("buttonAnimationPaused", defaults.buttonAnimationPaused)
                     )
                 )
             } catch (e: Exception) {
