@@ -10,6 +10,7 @@ import com.example.data.preferences.AppIconOption
 import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.ButtonShapeOption
 import com.example.data.preferences.CucalcusSettings
+import com.example.data.preferences.DisplayBoxAnimation
 import com.example.data.preferences.FontOption
 import com.example.data.preferences.HapticStrength
 import com.example.data.preferences.KeypadArrangement
@@ -75,6 +76,10 @@ class SettingsViewModel(
                 it.copy(accentPreset = AccentPreset.CUSTOM, customAccentArgb = argb)
             }
         }
+    }
+
+    fun setDisplayBoxAnimation(animation: DisplayBoxAnimation) {
+        viewModelScope.launch { settingsRepository.updateSettings { it.copy(displayBoxAnimation = animation) } }
     }
 
     fun setDisplayFont(font: FontOption) {
