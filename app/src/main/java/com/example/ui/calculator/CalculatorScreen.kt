@@ -1103,7 +1103,6 @@ private fun DisplayBoxAnimationLayer(
         val faint = accent.copy(alpha = 0.10f)
         val medium = accent.copy(alpha = 0.17f)
         when (animation) {
-            DisplayBoxAnimation.NONE -> Unit
             DisplayBoxAnimation.FLOWING_WAVE -> {
                 for (layer in 0..2) {
                     val path = Path()
