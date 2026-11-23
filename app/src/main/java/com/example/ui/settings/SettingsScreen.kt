@@ -1171,6 +1171,19 @@ private fun AnimationPreviewChoice(title: String, selected: Boolean, accent: Col
                         "Floating Orbs" -> for (i in 0..3) drawCircle(accent.copy(alpha = 0.25f), 5.dp.toPx(), Offset(size.width * (0.15f + i * 0.22f), size.height * (0.5f + kotlin.math.sin(phase * 6.28f + i) * 0.2f)))
                         "Moving Grid" -> for (i in 0..5) drawLine(accent.copy(alpha = 0.2f), Offset(i * 24f + x * 18f % 24f, 0f), Offset(i * 24f + x * 18f % 24f, size.height), 1.dp.toPx())
                         "Liquid Glow" -> drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.35f), Color.Transparent), Offset(x, size.height / 2), size.height), size.height, Offset(x, size.height / 2))
+                        "Radial Rings" -> for (i in 0..3) {
+                            val p = (phase + i * 0.25f) % 1f
+                            drawCircle(accent.copy(alpha = 0.25f * (1f - p)), size.minDimension * p * 0.72f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.2.dp.toPx()))
+                        }
+                        "Nebula Drift" -> for (i in 0..5) {
+                            val a = phase * 6.28f + i * 1.047f
+                            val point = Offset(size.width * (0.5f + 0.32f * kotlin.math.cos(a)), size.height * (0.5f + 0.3f * kotlin.math.sin(a * 0.72f + i)))
+                            drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.35f), Color.Transparent), point, 12.dp.toPx()), 12.dp.toPx(), point)
+                        }
+                        "Scanline Flow" -> for (i in 0..7) {
+                            val y = (i * 9f + phase * 18f) % size.height
+                            drawLine(accent.copy(alpha = 0.28f), Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+                        }
                         else -> for (i in 0..18) drawCircle(accent.copy(alpha = 0.25f), 1.5.dp.toPx(), Offset((i * 23f + x * 20f) % size.width, (i * 13f) % size.height))
                     }
                 }
@@ -1198,6 +1211,16 @@ private fun ButtonAnimationPreviewChoice(title: String, selected: Boolean, accen
                             "Shimmer" -> drawRect(Brush.linearGradient(listOf(Color.Transparent, accent.copy(alpha = 0.55f), Color.Transparent), Offset(size.width * (p - 0.3f), 0f), Offset(size.width * (p + 0.3f), size.height)))
                             "Ripple" -> for (i in 0..2) drawCircle(accent.copy(alpha = 0.3f), size.minDimension * ((p + i * 0.33f) % 1f) * 0.5f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
                             "Floating Glow", "Aurora Trail" -> drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.4f), Color.Transparent), Offset(size.width * p, size.height / 2), size.height), size.height, Offset(size.width * p, size.height / 2))
+                            "Color Breath" -> drawCircle(accent.copy(alpha = 0.16f + 0.16f * kotlin.math.sin(p * 6.28f)), size.minDimension * (0.22f + 0.08f * kotlin.math.sin(p * 6.28f)), center)
+                            "Edge Glow" -> {
+                                val x = size.width * p
+                                drawLine(accent.copy(alpha = 0.7f), Offset(x, 2.dp.toPx()), Offset(x, size.height - 2.dp.toPx()), 3.dp.toPx())
+                                drawRect(accent.copy(alpha = 0.3f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                            }
+                            "Spark Trail" -> for (i in 0..5) {
+                                val t = (p + i * 0.14f) % 1f
+                                drawCircle(accent.copy(alpha = 0.45f * (1f - t)), 2.dp.toPx(), Offset(size.width * t, size.height * (0.5f + 0.25f * kotlin.math.sin(t * 6.28f + i))))
+                            }
                             else -> drawCircle(accent.copy(alpha = 0.35f), size.minDimension * 0.2f, Offset(size.width * (0.5f + 0.2f * kotlin.math.sin(p * 6.28f)), size.height / 2))
                         }
                     }
