@@ -108,11 +108,11 @@ enum class HapticStrength(val label: String) {
 
 enum class DisplayBoxAnimation(val label: String) {
     NONE("Off"),
-    PULSE("Pulse"),
-    COLOR_CYCLE("Colour Flow"),
-    SHIMMER("Shimmer"),
-    GLOW("Glow"),
-    BREATHING("Breathing")
+    FLOWING_WAVE("Flowing Wave"),
+    SHIMMER_SWEEP("Shimmer Sweep"),
+    FLOATING_ORBS("Floating Orbs"),
+    AURORA_FLOW("Aurora Flow"),
+    MOVING_GRID("Moving Grid")
 }
 
 enum class IconCategory(val title: String) {
