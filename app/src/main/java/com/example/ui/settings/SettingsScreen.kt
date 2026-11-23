@@ -148,8 +148,18 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val colors = CucalcusTheme.colors
+    val previewsShouldMove =
+        (settings.displayBoxAnimationsEnabled && !settings.displayBoxAnimationPaused) ||
+        (settings.buttonAnimationsEnabled && !settings.buttonAnimationPaused)
     val animationPreviewTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "settings_animation_previews")
-    val animationPreviewPhase by animationPreviewTransition.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(3600, easing = androidx.compose.animation.core.LinearEasing)), label = "settings_preview_phase")
+    val animationPreviewPhase by animationPreviewTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (previewsShouldMove) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(5200, easing = androidx.compose.animation.core.LinearEasing)
+        ),
+        label = "settings_preview_phase"
+    )
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -550,27 +560,55 @@ if (isPreparingSettings) {
                         subtitle = "Keypad layout, precision, number formatting & vibration"
                     )
 
-                    SwissSectionHeader(title = "Display Box Animations", subtitle = "Ambient effects inside the calculator display")
-                    SettingsSwitchGroupCard {
-                        SettingSwitchItem(title = "Enable display animations", subtitle = "Turn on the selected display effect", checked = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationsEnabled)
-                        HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
-                        SettingSwitchItem(title = "Pause animation", subtitle = "Keep the effect visible without movement", checked = settings.displayBoxAnimationPaused, enabled = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationPaused)
-                    }
-                    Text("Choose an effect · tap a preview to select", style = MaterialTheme.typography.bodySmall, color = colors.secondaryText)
-                    DisplayBoxAnimation.entries.forEach { animation ->
-                        AnimationPreviewChoice(animation.label, settings.displayBoxAnimation == animation, colors.accent, { viewModel.setDisplayBoxAnimation(animation) }, animationPreviewPhase)
+                    AnimationSettingsSectionCard(
+                        title = "Display Box Animations",
+                        subtitle = "Ambient effects flowing inside the calculator display",
+                        icon = Icons.Outlined.Waves,
+                        accent = colors.accent
+                    ) {
+                        SettingsSwitchGroupCard {
+                            SettingSwitchItem(title = "Enable display animations", subtitle = "Turn on the selected display effect", checked = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationsEnabled)
+                            HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
+                            SettingSwitchItem(title = "Pause animation", subtitle = "Keep the effect visible without movement", checked = settings.displayBoxAnimationPaused, enabled = settings.displayBoxAnimationsEnabled, onCheckedChange = viewModel::setDisplayBoxAnimationPaused)
+                        }
+                        AnimatedVisibility(
+                            visible = settings.displayBoxAnimationsEnabled,
+                            enter = fadeIn(tween(180)) + expandVertically(tween(220)),
+                            exit = fadeOut(tween(120)) + shrinkVertically(tween(180))
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("CHOOSE YOUR DISPLAY EFFECT", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                DisplayBoxAnimation.entries.forEach { animation ->
+                                    AnimationPreviewChoice(animation.label, settings.displayBoxAnimation == animation, colors.accent, { viewModel.setDisplayBoxAnimation(animation) }, animationPreviewPhase)
+                                }
+                            }
+                        }
                     }
 
-                    Spacer(Modifier.height(14.dp))
-                    SwissSectionHeader(title = "Button Animations", subtitle = "Subtle motion effects for calculator keys")
-                    SettingsSwitchGroupCard {
-                        SettingSwitchItem(title = "Enable button animations", subtitle = "Apply the selected effect to calculator keys", checked = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationsEnabled)
-                        HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
-                        SettingSwitchItem(title = "Pause animation", subtitle = "Keep the selected button effect visible without movement", checked = settings.buttonAnimationPaused, enabled = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationPaused)
-                    }
-                    Text("Choose a button effect · tap a preview to select", style = MaterialTheme.typography.bodySmall, color = colors.secondaryText)
-                    ButtonAnimation.entries.forEach { animation ->
-                        ButtonAnimationPreviewChoice(animation.label, settings.buttonAnimation == animation, colors.accent, { viewModel.setButtonAnimation(animation) }, animationPreviewPhase)
+                    Spacer(Modifier.height(10.dp))
+                    AnimationSettingsSectionCard(
+                        title = "Button Animations",
+                        subtitle = "Subtle light and motion effects inside calculator keys",
+                        icon = Icons.Outlined.AutoAwesome,
+                        accent = colors.accent
+                    ) {
+                        SettingsSwitchGroupCard {
+                            SettingSwitchItem(title = "Enable button animations", subtitle = "Apply the selected effect to calculator keys", checked = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationsEnabled)
+                            HorizontalDivider(thickness = 1.dp, color = colors.border.copy(alpha = 0.7f))
+                            SettingSwitchItem(title = "Pause animation", subtitle = "Keep the selected button effect visible without movement", checked = settings.buttonAnimationPaused, enabled = settings.buttonAnimationsEnabled, onCheckedChange = viewModel::setButtonAnimationPaused)
+                        }
+                        AnimatedVisibility(
+                            visible = settings.buttonAnimationsEnabled,
+                            enter = fadeIn(tween(180)) + expandVertically(tween(220)),
+                            exit = fadeOut(tween(120)) + shrinkVertically(tween(180))
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("CHOOSE YOUR BUTTON EFFECT", style = MaterialTheme.typography.labelSmall, color = colors.secondaryText, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                ButtonAnimation.entries.forEach { animation ->
+                                    ButtonAnimationPreviewChoice(animation.label, settings.buttonAnimation == animation, colors.accent, { viewModel.setButtonAnimation(animation) }, animationPreviewPhase)
+                                }
+                            }
+                        }
                     }
 
                     SettingsSwitchGroupCard {
@@ -1156,6 +1194,43 @@ private fun CustomColorPickerDialog(
     )
 }
 
+
+@Composable
+private fun AnimationSettingsSectionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    accent: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val colors = CucalcusTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.cardBg)
+            .border(1.dp, colors.border.copy(alpha = 0.85f), RoundedCornerShape(22.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.primaryText)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = colors.secondaryText)
+            }
+        }
+        content()
+    }
+}
 
 @Composable
 private fun AnimationPreviewChoice(title: String, selected: Boolean, accent: Color, onClick: () -> Unit, phase: Float) {
