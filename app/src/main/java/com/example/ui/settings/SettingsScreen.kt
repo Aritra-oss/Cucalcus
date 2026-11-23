@@ -563,7 +563,7 @@ if (isPreparingSettings) {
                     AnimationSettingsSectionCard(
                         title = "Display Box Animations",
                         subtitle = "Ambient effects flowing inside the calculator display",
-                        icon = Icons.Outlined.Waves,
+                        icon = Icons.Outlined.Palette,
                         accent = colors.accent
                     ) {
                         SettingsSwitchGroupCard {
@@ -589,7 +589,7 @@ if (isPreparingSettings) {
                     AnimationSettingsSectionCard(
                         title = "Button Animations",
                         subtitle = "Subtle light and motion effects inside calculator keys",
-                        icon = Icons.Outlined.AutoAwesome,
+                        icon = Icons.Outlined.SmartButton,
                         accent = colors.accent
                     ) {
                         SettingsSwitchGroupCard {
