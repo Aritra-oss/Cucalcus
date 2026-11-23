@@ -21,6 +21,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +72,10 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.InterceptPlatformTextInput
@@ -115,7 +120,6 @@ import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
 import kotlinx.coroutines.awaitCancellation
 import kotlin.math.abs
-import kotlin.math.sin
 
 @Composable
 fun CalculatorScreen(
@@ -700,32 +704,11 @@ private fun CalculatorDisplayPanel(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (settings.displayBoxAnimation == DisplayBoxAnimation.COLOR_CYCLE) 4200 else 1900,
-                easing = if (settings.displayBoxAnimation == DisplayBoxAnimation.COLOR_CYCLE) androidx.compose.animation.core.LinearEasing else FastOutSlowInEasing
-            ),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(durationMillis = 7200, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
         label = "display_box_animation_phase"
     )
-    val animationAlpha = when (settings.displayBoxAnimation) {
-        DisplayBoxAnimation.NONE -> 0f
-        DisplayBoxAnimation.PULSE -> 0.30f + 0.70f * abs(sin(displayAnimationPhase * Math.PI.toFloat() * 2f))
-        DisplayBoxAnimation.COLOR_CYCLE -> 1f
-        DisplayBoxAnimation.SHIMMER -> 0.28f + 0.72f * displayAnimationPhase
-        DisplayBoxAnimation.GLOW -> 0.48f + 0.52f * displayAnimationPhase
-        DisplayBoxAnimation.BREATHING -> 0.35f + 0.65f * displayAnimationPhase
-    }
-    val displayBorderColor = when (settings.displayBoxAnimation) {
-        DisplayBoxAnimation.COLOR_CYCLE -> Color.hsv(displayAnimationPhase * 360f, 0.72f, 1f)
-        else -> colors.accent.copy(alpha = animationAlpha)
-    }
-    val displayBorderWidth = when (settings.displayBoxAnimation) {
-        DisplayBoxAnimation.NONE -> 1.dp
-        DisplayBoxAnimation.GLOW -> (2.5f + displayAnimationPhase * 2f).dp
-        DisplayBoxAnimation.BREATHING -> (1.5f + displayAnimationPhase * 2.5f).dp
-        else -> 2.dp
-    }
 
     val scanScrollState = rememberScrollState()
     LaunchedEffect(state.scannedAnswerText, state.isScanningProblem) {
@@ -738,22 +721,29 @@ private fun CalculatorDisplayPanel(
         shape = RoundedCornerShape(22.dp),
         color = colors.secondaryBg,
         border = BorderStroke(
-            width = if (settings.displayBoxAnimation == DisplayBoxAnimation.NONE) 1.dp else displayBorderWidth,
-            color = if (settings.displayBoxAnimation == DisplayBoxAnimation.NONE) {
-                if (isScanMode) colors.accent.copy(alpha = 0.55f) else colors.border
-            } else displayBorderColor
+            width = 1.dp,
+            color = if (isScanMode) colors.accent.copy(alpha = 0.55f) else colors.border
         ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        Column(
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (settings.displayBoxAnimation != DisplayBoxAnimation.NONE) {
+                DisplayBoxAnimationLayer(
+                    animation = settings.displayBoxAnimation,
+                    phase = displayAnimationPhase,
+                    accent = colors.accent,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.End
-        ) {
+            ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1093,6 +1083,97 @@ private fun CalculatorDisplayPanel(
                                 .testTag("calculator_preview")
                         )
                     }
+                }
+            }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisplayBoxAnimationLayer(
+    animation: DisplayBoxAnimation,
+    phase: Float,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val faint = accent.copy(alpha = 0.10f)
+        val medium = accent.copy(alpha = 0.17f)
+        when (animation) {
+            DisplayBoxAnimation.NONE -> Unit
+            DisplayBoxAnimation.FLOWING_WAVE -> {
+                for (layer in 0..2) {
+                    val path = Path()
+                    val yBase = h * (0.68f + layer * 0.10f)
+                    val amplitude = h * (0.075f + layer * 0.018f)
+                    for (step in 0..100) {
+                        val x = w * step / 100f
+                        val angle = (step / 100f * 2f * Math.PI).toFloat()
+                        val y = yBase + kotlin.math.sin(angle * 1.25f - phase * 2f * Math.PI.toFloat() + layer * 0.9f) * amplitude
+                        if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(
+                        path = path,
+                        color = if (layer == 1) medium else faint,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = h * (0.055f - layer * 0.008f),
+                            cap = StrokeCap.Round
+                        )
+                    )
+                }
+            }
+            DisplayBoxAnimation.SHIMMER_SWEEP -> {
+                val x = (w + h) * phase - h
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.Transparent, accent.copy(alpha = 0.14f), Color.Transparent),
+                        start = Offset(x - h * 0.35f, 0f),
+                        end = Offset(x + h * 0.35f, h)
+                    )
+                )
+            }
+            DisplayBoxAnimation.FLOATING_ORBS -> {
+                val positions = listOf(0.14f to 0.28f, 0.39f to 0.72f, 0.68f to 0.32f, 0.88f to 0.67f)
+                positions.forEachIndexed { index, point ->
+                    val drift = (phase + index * 0.23f) % 1f
+                    val x = w * point.first + kotlin.math.sin(drift * 2f * Math.PI.toFloat()) * w * 0.045f
+                    val y = h * point.second + kotlin.math.cos(drift * 2f * Math.PI.toFloat()) * h * 0.10f
+                    val radius = h * (0.055f + (index % 2) * 0.025f)
+                    drawCircle(color = faint, radius = radius * 2.1f, center = Offset(x, y))
+                    drawCircle(color = medium, radius = radius, center = Offset(x, y))
+                }
+            }
+            DisplayBoxAnimation.AURORA_FLOW -> {
+                for (layer in 0..3) {
+                    val path = Path()
+                    for (step in 0..80) {
+                        val x = w * step / 80f
+                        val wave = kotlin.math.sin(step / 80f * 2f * Math.PI.toFloat() + phase * 2f * Math.PI.toFloat() + layer * 1.1f)
+                        val y = h * (0.24f + layer * 0.17f) + wave * h * 0.10f
+                        if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(
+                        path,
+                        color = accent.copy(alpha = 0.045f + layer * 0.018f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = h * 0.13f, cap = StrokeCap.Round)
+                    )
+                }
+            }
+            DisplayBoxAnimation.MOVING_GRID -> {
+                val spacing = 34.dp.toPx()
+                val shift = phase * spacing
+                var x = -spacing + shift
+                while (x < w + spacing) {
+                    drawLine(faint, Offset(x, 0f), Offset(x - h * 0.28f, h), strokeWidth = 1.dp.toPx())
+                    x += spacing
+                }
+                var y = -spacing + shift
+                while (y < h + spacing) {
+                    drawLine(faint, Offset(0f, y), Offset(w, y), strokeWidth = 1.dp.toPx())
+                    y += spacing
                 }
             }
         }
