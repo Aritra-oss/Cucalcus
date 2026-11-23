@@ -702,7 +702,7 @@ private fun CalculatorDisplayPanel(
     val displayAnimationTransition = rememberInfiniteTransition(label = "display_box_animation")
     val displayAnimationPhase by displayAnimationTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
+        targetValue = if (settings.displayBoxAnimationsEnabled && !settings.displayBoxAnimationPaused) 1f else 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 7200, easing = androidx.compose.animation.core.LinearEasing),
             repeatMode = RepeatMode.Restart
@@ -729,7 +729,7 @@ private fun CalculatorDisplayPanel(
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (settings.displayBoxAnimation != DisplayBoxAnimation.NONE) {
+            if (settings.displayBoxAnimationsEnabled) {
                 DisplayBoxAnimationLayer(
                     animation = settings.displayBoxAnimation,
                     phase = displayAnimationPhase,
@@ -1174,6 +1174,21 @@ private fun DisplayBoxAnimationLayer(
                 while (y < h + spacing) {
                     drawLine(faint, Offset(0f, y), Offset(w, y), strokeWidth = 1.dp.toPx())
                     y += spacing
+                }
+            }
+            DisplayBoxAnimation.LIQUID_GLOW -> {
+                val centerX = w * (0.2f + phase * 0.6f)
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.18f), Color.Transparent), center = Offset(centerX, h * 0.55f), radius = h * 0.8f),
+                    radius = h * 0.8f,
+                    center = Offset(centerX, h * 0.55f)
+                )
+            }
+            DisplayBoxAnimation.STAR_DUST -> {
+                for (i in 0..24) {
+                    val x = ((i * 37f / 25f + phase * 0.22f) % 1f) * w
+                    val y = ((i * 17f % 91f) / 100f) * h
+                    drawCircle(accent.copy(alpha = 0.10f + (i % 3) * 0.035f), radius = 1.2.dp.toPx() + (i % 3) * 0.6.dp.toPx(), center = Offset(x, y))
                 }
             }
         }
