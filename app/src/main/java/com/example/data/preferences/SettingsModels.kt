@@ -127,7 +127,7 @@ enum class ButtonAnimation(val label: String) {
     AURORA("Aurora Trail"),
     MAGNETIC("Magnetic Drift"),
     COLOR_BREATH("Color Breath"),
-    EDGE_GLOW("Edge Glow"),
+    INNER_GLOW("Inner Glow"),
     SPARK_TRAIL("Spark Trail")
 }
 
