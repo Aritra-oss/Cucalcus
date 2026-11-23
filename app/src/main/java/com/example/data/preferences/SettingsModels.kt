@@ -107,12 +107,28 @@ enum class HapticStrength(val label: String) {
 }
 
 enum class DisplayBoxAnimation(val label: String) {
-    FLOWING_WAVE("Flowing Wave"), SHIMMER_SWEEP("Shimmer Sweep"), FLOATING_ORBS("Floating Orbs"),
-    AURORA_FLOW("Aurora Flow"), MOVING_GRID("Moving Grid"), LIQUID_GLOW("Liquid Glow"), STAR_DUST("Star Dust")
+    FLOWING_WAVE("Flowing Wave"),
+    SHIMMER_SWEEP("Shimmer Sweep"),
+    FLOATING_ORBS("Floating Orbs"),
+    AURORA_FLOW("Aurora Flow"),
+    MOVING_GRID("Moving Grid"),
+    LIQUID_GLOW("Liquid Glow"),
+    STAR_DUST("Star Dust"),
+    RADIAL_RINGS("Radial Rings"),
+    NEBULA_DRIFT("Nebula Drift"),
+    SCANLINE_FLOW("Scanline Flow")
 }
 
 enum class ButtonAnimation(val label: String) {
-    SOFT_PULSE("Soft Pulse"), SHIMMER("Shimmer"), RIPPLE("Ripple"), FLOATING_GLOW("Floating Glow"), AURORA("Aurora Trail"), MAGNETIC("Magnetic Drift")
+    SOFT_PULSE("Soft Pulse"),
+    SHIMMER("Shimmer"),
+    RIPPLE("Ripple"),
+    FLOATING_GLOW("Floating Glow"),
+    AURORA("Aurora Trail"),
+    MAGNETIC("Magnetic Drift"),
+    COLOR_BREATH("Color Breath"),
+    EDGE_GLOW("Edge Glow"),
+    SPARK_TRAIL("Spark Trail")
 }
 
 enum class IconCategory(val title: String) {
