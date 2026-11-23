@@ -267,6 +267,7 @@ data class CucalcusSettings(
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 
     val selectedIcon: AppIconOption = AppIconOption.NORMAL_GREEN,
+    val displayBoxAnimation: DisplayBoxAnimation = DisplayBoxAnimation.PULSE,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long
@@ -305,6 +306,7 @@ data class CucalcusSettings(
         json.put("hapticEnabled", hapticEnabled)
         json.put("hapticStrength", hapticStrength.name)
         json.put("selectedIcon", selectedIcon.name)
+        json.put("displayBoxAnimation", displayBoxAnimation.name)
         return json.toString(2)
     }
 
@@ -345,7 +347,8 @@ data class CucalcusSettings(
                         clipboardDetectionEnabled = j.optBoolean("clipboardDetectionEnabled", defaults.clipboardDetectionEnabled),
                         hapticEnabled = j.optBoolean("hapticEnabled", defaults.hapticEnabled),
                         hapticStrength = enumOrDefault(j.optString("hapticStrength"), defaults.hapticStrength),
-                        selectedIcon = enumOrDefault(j.optString("selectedIcon"), defaults.selectedIcon)
+                        selectedIcon = enumOrDefault(j.optString("selectedIcon"), defaults.selectedIcon),
+                        displayBoxAnimation = enumOrDefault(j.optString("displayBoxAnimation"), defaults.displayBoxAnimation)
                     )
                 )
             } catch (e: Exception) {
