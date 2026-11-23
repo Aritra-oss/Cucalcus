@@ -106,6 +106,15 @@ enum class HapticStrength(val label: String) {
     CRISP("Crisp")
 }
 
+enum class DisplayBoxAnimation(val label: String) {
+    NONE("Off"),
+    PULSE("Pulse"),
+    COLOR_CYCLE("Colour Flow"),
+    SHIMMER("Shimmer"),
+    GLOW("Glow"),
+    BREATHING("Breathing")
+}
+
 enum class IconCategory(val title: String) {
     NORMAL("Category A: Normal Collection"),
     IPL_INSPIRED("Category B: IPL-Inspired Collection"),
