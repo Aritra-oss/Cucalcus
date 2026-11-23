@@ -73,6 +73,11 @@ class SettingsRepository(private val context: Context) {
 
         val SELECTED_ICON = stringPreferencesKey("selected_icon")
         val DISPLAY_BOX_ANIMATION = stringPreferencesKey("display_box_animation")
+        val DISPLAY_BOX_ANIMATIONS_ENABLED = booleanPreferencesKey("display_box_animations_enabled")
+        val DISPLAY_BOX_ANIMATION_PAUSED = booleanPreferencesKey("display_box_animation_paused")
+        val BUTTON_ANIMATION = stringPreferencesKey("button_animation")
+        val BUTTON_ANIMATIONS_ENABLED = booleanPreferencesKey("button_animations_enabled")
+        val BUTTON_ANIMATION_PAUSED = booleanPreferencesKey("button_animation_paused")
         val CALCULATOR_MEMORY = doublePreferencesKey("calculator_memory")
 
         // Currency Cache Keys
@@ -303,6 +308,11 @@ class SettingsRepository(private val context: Context) {
             hapticStrength = parseEnum(prefs[Keys.HAPTIC_STRENGTH], d.hapticStrength),
             selectedIcon = parseEnum(prefs[Keys.SELECTED_ICON], d.selectedIcon),
             displayBoxAnimation = parseEnum(prefs[Keys.DISPLAY_BOX_ANIMATION], d.displayBoxAnimation),
+            displayBoxAnimationsEnabled = prefs[Keys.DISPLAY_BOX_ANIMATIONS_ENABLED] ?: d.displayBoxAnimationsEnabled,
+            displayBoxAnimationPaused = prefs[Keys.DISPLAY_BOX_ANIMATION_PAUSED] ?: d.displayBoxAnimationPaused,
+            buttonAnimation = parseEnum(prefs[Keys.BUTTON_ANIMATION], d.buttonAnimation),
+            buttonAnimationsEnabled = prefs[Keys.BUTTON_ANIMATIONS_ENABLED] ?: d.buttonAnimationsEnabled,
+            buttonAnimationPaused = prefs[Keys.BUTTON_ANIMATION_PAUSED] ?: d.buttonAnimationPaused,
             calculatorMemory = prefs[Keys.CALCULATOR_MEMORY] ?: d.calculatorMemory
         )
     }
@@ -345,6 +355,11 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.HAPTIC_STRENGTH] = s.hapticStrength.name
         prefs[Keys.SELECTED_ICON] = s.selectedIcon.name
         prefs[Keys.DISPLAY_BOX_ANIMATION] = s.displayBoxAnimation.name
+        prefs[Keys.DISPLAY_BOX_ANIMATIONS_ENABLED] = s.displayBoxAnimationsEnabled
+        prefs[Keys.DISPLAY_BOX_ANIMATION_PAUSED] = s.displayBoxAnimationPaused
+        prefs[Keys.BUTTON_ANIMATION] = s.buttonAnimation.name
+        prefs[Keys.BUTTON_ANIMATIONS_ENABLED] = s.buttonAnimationsEnabled
+        prefs[Keys.BUTTON_ANIMATION_PAUSED] = s.buttonAnimationPaused
     }
 
     private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T): T {
