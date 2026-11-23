@@ -71,6 +71,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -95,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.preferences.CucalcusSettings
+import com.example.data.preferences.DisplayBoxAnimation
 import com.example.data.preferences.KeypadArrangement
 import com.example.domain.math.AngleMode
 import com.example.domain.math.NumberFormatMode
@@ -113,6 +115,7 @@ import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalDisplayFontFamily
 import kotlinx.coroutines.awaitCancellation
 import kotlin.math.abs
+import kotlin.math.sin
 
 @Composable
 fun CalculatorScreen(
@@ -692,6 +695,38 @@ private fun CalculatorDisplayPanel(
         selection = TextRange(clampedCursor)
     )
 
+    val displayAnimationTransition = rememberInfiniteTransition(label = "display_box_animation")
+    val displayAnimationPhase by displayAnimationTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (settings.displayBoxAnimation == DisplayBoxAnimation.COLOR_CYCLE) 4200 else 1900,
+                easing = if (settings.displayBoxAnimation == DisplayBoxAnimation.COLOR_CYCLE) androidx.compose.animation.core.LinearEasing else FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "display_box_animation_phase"
+    )
+    val animationAlpha = when (settings.displayBoxAnimation) {
+        DisplayBoxAnimation.NONE -> 0f
+        DisplayBoxAnimation.PULSE -> 0.30f + 0.70f * abs(sin(displayAnimationPhase * Math.PI.toFloat() * 2f))
+        DisplayBoxAnimation.COLOR_CYCLE -> 1f
+        DisplayBoxAnimation.SHIMMER -> 0.28f + 0.72f * displayAnimationPhase
+        DisplayBoxAnimation.GLOW -> 0.48f + 0.52f * displayAnimationPhase
+        DisplayBoxAnimation.BREATHING -> 0.35f + 0.65f * displayAnimationPhase
+    }
+    val displayBorderColor = when (settings.displayBoxAnimation) {
+        DisplayBoxAnimation.COLOR_CYCLE -> Color.hsv(displayAnimationPhase * 360f, 0.72f, 1f)
+        else -> colors.accent.copy(alpha = animationAlpha)
+    }
+    val displayBorderWidth = when (settings.displayBoxAnimation) {
+        DisplayBoxAnimation.NONE -> 1.dp
+        DisplayBoxAnimation.GLOW -> (2.5f + displayAnimationPhase * 2f).dp
+        DisplayBoxAnimation.BREATHING -> (1.5f + displayAnimationPhase * 2.5f).dp
+        else -> 2.dp
+    }
+
     val scanScrollState = rememberScrollState()
     LaunchedEffect(state.scannedAnswerText, state.isScanningProblem) {
         if (state.isScanningProblem && scanScrollState.maxValue > 0) {
@@ -703,8 +738,10 @@ private fun CalculatorDisplayPanel(
         shape = RoundedCornerShape(22.dp),
         color = colors.secondaryBg,
         border = BorderStroke(
-            width = 1.dp,
-            color = if (isScanMode) colors.accent.copy(alpha = 0.55f) else colors.border
+            width = if (settings.displayBoxAnimation == DisplayBoxAnimation.NONE) 1.dp else displayBorderWidth,
+            color = if (settings.displayBoxAnimation == DisplayBoxAnimation.NONE) {
+                if (isScanMode) colors.accent.copy(alpha = 0.55f) else colors.border
+            } else displayBorderColor
         ),
         modifier = modifier
             .fillMaxWidth()
