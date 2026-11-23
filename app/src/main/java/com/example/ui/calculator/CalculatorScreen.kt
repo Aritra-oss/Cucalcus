@@ -675,7 +675,7 @@ private fun CalculatorDisplayPanel(
 
     val displayText = state.formattedExpression.ifEmpty { "0" }
     val dynamicSp = when {
-        displayText.length > 22 -> 28f
+        displayText.length > 22 -> 30f
         displayText.length > 16 -> 32f
         displayText.length > 11 -> 40f
         else -> 48f
