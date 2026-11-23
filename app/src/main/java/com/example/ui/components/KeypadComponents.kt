@@ -161,13 +161,15 @@ fun CalculatorKeyButton(
     }
     val resolvedFontSize = fontSize ?: (defaultSp * settings.fontScale * settings.buttonSizeScale).coerceIn(11f, 28f).sp
 
-    val buttonTransition = rememberInfiniteTransition(label = "button_effect_transition")
-    val buttonPhase by buttonTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), repeatMode = RepeatMode.Restart),
-        label = "button_effect_phase"
-    )
+    val buttonPhase = if (settings.buttonAnimationsEnabled && !settings.buttonAnimationPaused) {
+        val buttonTransition = rememberInfiniteTransition(label = "button_effect_transition")
+        buttonTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+            label = "button_effect_phase"
+        ).value
+    } else if (settings.buttonAnimationsEnabled) 0.38f else 0f
     val resolvedBorder = if (settings.borderlessButtons) null else borderStroke
 
     Surface(
@@ -197,7 +199,7 @@ fun CalculatorKeyButton(
         ) {
             if (settings.buttonAnimationsEnabled) {
                 Canvas(Modifier.fillMaxSize()) {
-                    val p = if (settings.buttonAnimationPaused) 0.38f else buttonPhase
+                    val p = buttonPhase
                     when (settings.buttonAnimation) {
                         ButtonAnimation.SOFT_PULSE -> drawCircle(baseText.copy(alpha = 0.09f), size.minDimension * (0.28f + 0.07f * kotlin.math.sin(p * 6.28f)), center)
                         ButtonAnimation.SHIMMER -> drawRect(Brush.linearGradient(listOf(Color.Transparent, baseText.copy(alpha = 0.14f), Color.Transparent), start = Offset(size.width * (p - 0.35f), 0f), end = Offset(size.width * (p + 0.35f), size.height)))
