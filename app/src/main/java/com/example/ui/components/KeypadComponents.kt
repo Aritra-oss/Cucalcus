@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
@@ -222,12 +223,19 @@ fun CalculatorKeyButton(
                             drawRect(baseText.copy(alpha = 0.035f + breath * 0.10f))
                             drawCircle(baseText.copy(alpha = 0.10f + breath * 0.08f), size.minDimension * (0.18f + breath * 0.08f), center)
                         }
-                        ButtonAnimation.EDGE_GLOW -> {
-                            val edge = (p * 4f) % 4f
-                            val x = if (edge < 1f) size.width * edge else if (edge < 3f) size.width * (3f - edge) else size.width * (edge - 3f)
-                            val y = if (edge < 1f) 0f else if (edge < 2f) size.height * (edge - 1f) else if (edge < 3f) size.height else size.height * (4f - edge)
-                            drawCircle(baseText.copy(alpha = 0.22f), size.minDimension * 0.16f, Offset(x, y))
-                            drawRect(baseText.copy(alpha = 0.045f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+                        ButtonAnimation.INNER_GLOW -> {
+                            val glowX = size.width * (0.18f + 0.64f * p)
+                            val glowY = size.height * (0.5f + 0.12f * kotlin.math.sin(p * 6.28f))
+                            val glowRadius = size.minDimension * 0.62f
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    listOf(baseText.copy(alpha = 0.24f), baseText.copy(alpha = 0.08f), Color.Transparent),
+                                    center = Offset(glowX, glowY),
+                                    radius = glowRadius
+                                ),
+                                radius = glowRadius,
+                                center = Offset(glowX, glowY)
+                            )
                         }
                         ButtonAnimation.SPARK_TRAIL -> {
                             for (spark in 0..6) {
