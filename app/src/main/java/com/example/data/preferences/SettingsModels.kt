@@ -276,7 +276,7 @@ data class CucalcusSettings(
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 
     val selectedIcon: AppIconOption = AppIconOption.NORMAL_GREEN,
-    val displayBoxAnimation: DisplayBoxAnimation = DisplayBoxAnimation.PULSE,
+    val displayBoxAnimation: DisplayBoxAnimation = DisplayBoxAnimation.FLOWING_WAVE,
     val calculatorMemory: Double = 0.0
 ) {
     val activeAccentArgb: Long
