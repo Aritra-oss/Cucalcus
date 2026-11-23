@@ -101,6 +101,7 @@ import com.example.data.preferences.AppBackgroundPreset
 import com.example.data.preferences.AppThemeMode
 import com.example.data.preferences.ButtonShapeOption
 import com.example.data.preferences.CucalcusSettings
+import com.example.data.preferences.DisplayBoxAnimation
 import com.example.data.preferences.FontOption
 import com.example.data.preferences.HapticStrength
 import com.example.data.preferences.KeypadArrangement
@@ -540,6 +541,18 @@ if (isPreparingSettings) {
                     SwissSectionHeader(
                         title = "Calculator & Haptics",
                         subtitle = "Keypad layout, precision, number formatting & vibration"
+                    )
+
+                    SettingSubLabel("Display Box Animation")
+                    Text(
+                        text = "Choose a continuously running effect for the calculator display. Changes apply instantly.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.secondaryText
+                    )
+                    ChipSelectionRow(
+                        items = DisplayBoxAnimation.entries.map { it to it.label },
+                        selected = settings.displayBoxAnimation,
+                        onSelect = viewModel::setDisplayBoxAnimation
                     )
 
                     SettingsSwitchGroupCard {
