@@ -72,6 +72,7 @@ class SettingsRepository(private val context: Context) {
         val HAPTIC_STRENGTH = stringPreferencesKey("haptic_strength")
 
         val SELECTED_ICON = stringPreferencesKey("selected_icon")
+        val DISPLAY_BOX_ANIMATION = stringPreferencesKey("display_box_animation")
         val CALCULATOR_MEMORY = doublePreferencesKey("calculator_memory")
 
         // Currency Cache Keys
@@ -301,6 +302,7 @@ class SettingsRepository(private val context: Context) {
             hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: d.hapticEnabled,
             hapticStrength = parseEnum(prefs[Keys.HAPTIC_STRENGTH], d.hapticStrength),
             selectedIcon = parseEnum(prefs[Keys.SELECTED_ICON], d.selectedIcon),
+            displayBoxAnimation = parseEnum(prefs[Keys.DISPLAY_BOX_ANIMATION], d.displayBoxAnimation),
             calculatorMemory = prefs[Keys.CALCULATOR_MEMORY] ?: d.calculatorMemory
         )
     }
@@ -342,6 +344,7 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.HAPTIC_STRENGTH] = s.hapticStrength.name
         prefs[Keys.SELECTED_ICON] = s.selectedIcon.name
+        prefs[Keys.DISPLAY_BOX_ANIMATION] = s.displayBoxAnimation.name
     }
 
     private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T): T {
