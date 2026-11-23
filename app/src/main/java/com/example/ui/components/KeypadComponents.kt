@@ -1,8 +1,14 @@
 package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -19,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
@@ -32,6 +40,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.preferences.ButtonShapeOption
+import com.example.data.preferences.ButtonAnimation
 import com.example.data.preferences.CucalcusSettings
 import com.example.ui.theme.CucalcusTheme
 import com.example.ui.theme.LocalButtonFontFamily
@@ -152,6 +161,13 @@ fun CalculatorKeyButton(
     }
     val resolvedFontSize = fontSize ?: (defaultSp * settings.fontScale * settings.buttonSizeScale).coerceIn(11f, 28f).sp
 
+    val buttonTransition = rememberInfiniteTransition(label = "button_effect_transition")
+    val buttonPhase by buttonTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+        label = "button_effect_phase"
+    )
     val resolvedBorder = if (settings.borderlessButtons) null else borderStroke
 
     Surface(
@@ -179,6 +195,29 @@ fun CalculatorKeyButton(
                 .fillMaxSize()
                 .padding(horizontal = 4.dp, vertical = 2.dp)
         ) {
+            if (settings.buttonAnimationsEnabled) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val p = if (settings.buttonAnimationPaused) 0.38f else buttonPhase
+                    when (settings.buttonAnimation) {
+                        ButtonAnimation.SOFT_PULSE -> drawCircle(baseText.copy(alpha = 0.09f), size.minDimension * (0.28f + 0.07f * kotlin.math.sin(p * 6.28f)), center)
+                        ButtonAnimation.SHIMMER -> drawRect(Brush.linearGradient(listOf(Color.Transparent, baseText.copy(alpha = 0.14f), Color.Transparent), start = Offset(size.width * (p - 0.35f), 0f), end = Offset(size.width * (p + 0.35f), size.height)))
+                        ButtonAnimation.RIPPLE -> for (ring in 0..2) {
+                            val radius = size.minDimension * ((p + ring * 0.33f) % 1f) * 0.70f
+                            drawCircle(baseText.copy(alpha = 0.13f * (1f - radius / size.minDimension)), radius, style = androidx.compose.ui.graphics.drawscope.Stroke(1.2.dp.toPx()))
+                        }
+                        ButtonAnimation.FLOATING_GLOW -> {
+                            val x = size.width * (0.15f + 0.70f * p)
+                            drawCircle(Brush.radialGradient(listOf(baseText.copy(alpha = 0.18f), Color.Transparent), center = Offset(x, size.height * 0.5f), radius = size.minDimension * 0.55f), size.minDimension * 0.55f, Offset(x, size.height * 0.5f))
+                        }
+                        ButtonAnimation.AURORA -> drawRect(Brush.linearGradient(listOf(Color.Transparent, baseText.copy(alpha = 0.12f), Color.Transparent), start = Offset(0f, size.height * p), end = Offset(size.width, size.height * (p + 0.45f))))
+                        ButtonAnimation.MAGNETIC -> {
+                            val x = size.width * (0.5f + 0.22f * kotlin.math.sin(p * 6.28f))
+                            val y = size.height * (0.5f + 0.16f * kotlin.math.cos(p * 6.28f))
+                            drawCircle(baseText.copy(alpha = 0.12f), size.minDimension * 0.22f, Offset(x, y))
+                        }
+                    }
+                }
+            }
             Text(
                 text = label,
                 fontFamily = buttonFont,
