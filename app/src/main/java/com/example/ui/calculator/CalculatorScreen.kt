@@ -1190,6 +1190,58 @@ private fun DisplayBoxAnimationLayer(
                     drawCircle(accent.copy(alpha = 0.10f + (i % 3) * 0.035f), radius = 1.2.dp.toPx() + (i % 3) * 0.6.dp.toPx(), center = Offset(x, y))
                 }
             }
+            DisplayBoxAnimation.RADIAL_RINGS -> {
+                val maxRadius = kotlin.math.sqrt(w * w + h * h) * 0.58f
+                for (ring in 0..3) {
+                    val progress = (phase + ring * 0.25f) % 1f
+                    val radius = maxRadius * progress
+                    drawCircle(
+                        color = accent.copy(alpha = 0.15f * (1f - progress)),
+                        radius = radius,
+                        center = Offset(w * 0.5f, h * 0.52f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    )
+                }
+            }
+            DisplayBoxAnimation.NEBULA_DRIFT -> {
+                for (orb in 0..5) {
+                    val angle = phase * (2f * Math.PI.toFloat()) + orb * 1.047f
+                    val x = w * (0.5f + 0.34f * kotlin.math.cos(angle))
+                    val y = h * (0.5f + 0.30f * kotlin.math.sin(angle * 0.72f + orb))
+                    val radius = h * (0.12f + (orb % 3) * 0.035f)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            listOf(accent.copy(alpha = 0.12f), accent.copy(alpha = 0.035f), Color.Transparent),
+                            center = Offset(x, y),
+                            radius = radius
+                        ),
+                        radius = radius,
+                        center = Offset(x, y)
+                    )
+                }
+            }
+            DisplayBoxAnimation.SCANLINE_FLOW -> {
+                val spacing = 9.dp.toPx()
+                val shift = phase * spacing
+                var y = -spacing + shift
+                while (y < h + spacing) {
+                    drawLine(
+                        color = accent.copy(alpha = 0.11f),
+                        start = Offset(0f, y),
+                        end = Offset(w, y),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    y += spacing
+                }
+                val bandY = h * phase
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        listOf(Color.Transparent, accent.copy(alpha = 0.12f), Color.Transparent),
+                        startY = bandY - h * 0.18f,
+                        endY = bandY + h * 0.18f
+                    )
+                )
+            }
         }
     }
 }
